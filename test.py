@@ -14,9 +14,12 @@ class TestFemSimulation(unittest.TestCase):
             command = ['cat', example_file]
             ec.PROC_ENCODING = 'utf-16'
         self.subject = ec.FemSimulation(command, dirname)
+
         f, self.config_file = tempfile.mkstemp()
         self.subject.config_file = self.config_file
         os.close(f)
+
+        self.subject.cache.cache_file_path = os.devnull
 
     def test_compute_forces(self):
         # It reads from STDOUT computed forces
@@ -39,6 +42,10 @@ class TestFemSimulation(unittest.TestCase):
         self.assertIn('y2 = 3', conf)
         self.assertIn('x3 = 4', conf)
         self.assertIn('y3 = 5', conf)
+
+        # It caches computed forces
+        cached = self.subject.cache.read([0, 1, 2, 3, 4, 5])
+        self.assertEqual(cached, forces)
 
     def tearDown(self):
         os.remove(self.config_file)

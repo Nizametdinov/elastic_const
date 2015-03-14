@@ -60,6 +60,8 @@ class ForceCache(object):
         self.__restore_cache(self.cache_file_path)
 
     def __restore_cache(self, cache_file_path):
+        if not path.isfile(cache_file_path):
+            return
         with open(cache_file_path, 'r') as cache_file:
             for line in cache_file:
                 line = line.strip()
@@ -84,6 +86,7 @@ class FemSimulation(object):
         self.command = command_line
         self.config_file = path.join(working_dir, CONFIG_FILE)
         self.pattern = re.compile(RESULT_PATTERN)
+        self.cache = ForceCache(working_dir)
 
     def __process_result(self, match):
         return [float(match.group(group)) for group in ['f1x', 'f1y', 'f2x', 'f2y', 'f3x', 'f3y']]
@@ -97,8 +100,7 @@ class FemSimulation(object):
                 return self.__process_result(match)
         return None
 
-    def compute_forces(self, x1, y1, x2, y2, x3, y3):
-        "Computes forces acting on particles within given configuration"
+    def __create_config_file(self, x1, y1, x2, y2, x3, y3):
         with open(self.config_file, 'w', encoding = FILE_ENCODING) as conf_file:
             conf_file.write('x1 = {0}\n'.format(x1))
             conf_file.write('y1 = {0}\n'.format(y1))
@@ -106,7 +108,17 @@ class FemSimulation(object):
             conf_file.write('y2 = {0}\n'.format(y2))
             conf_file.write('x3 = {0}\n'.format(x3))
             conf_file.write('y3 = {0}\n'.format(y3))
-        return TripletForces([x1, y1, x2, y2, x3, y3], self.__execute())
+
+    def compute_forces(self, x1, y1, x2, y2, x3, y3):
+        "Computes forces acting on particles within given configuration"
+        cached = self.cache.read([x1, y1, x2, y2, x3, y3])
+        if cached:
+            return cached
+
+        self.__create_config_file(x1, y1, x2, y2, x3, y3)
+        result = TripletForces([x1, y1, x2, y2, x3, y3], self.__execute())
+        self.cache.save_result(result)
+        return result
 
 
 def derivative_of_force(simulation, particle_num, axis, positions, order = ORDER):
