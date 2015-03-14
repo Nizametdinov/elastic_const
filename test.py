@@ -78,6 +78,16 @@ class TestForceCache(unittest.TestCase):
             self.assertEqual(len(lines), 3)
             self.assertEqual(ec.TripletForces.from_string(lines[-1]), forces)
 
+    def test_read(self):
+        cached = self.subject.read([0.0, 0.0, 1.0, 0.1, 1.0, 0.0])
+        self.assertEqual(cached.positions, [0.0, 0.0, 1.0, 0.1, 1.0, 0.0])
+        self.assertEqual(cached.forces(), [-0.1707, -0.01507, -1.9323, -0.53, 0.1, 0.2])
+
+        forces = ec.TripletForces([0, 1, 2, 3, 4, 5], [1.1, 2, 3, 4, 5, 6.1])
+        self.subject.save_result(forces)
+        cached = self.subject.read(forces.positions)
+        self.assertEqual(cached, forces)
+
     def tearDown(self):
         os.remove(self.cache_file)
 
