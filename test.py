@@ -7,14 +7,19 @@ dirname = os.path.dirname(os.path.abspath(__file__))
 
 class TestFemSimulation(unittest.TestCase):
     def setUp(self):
-        example_file = os.path.join(dirname, 'test_data\\output_example.txt')
-        command = ['cmd', '/C', 'type', example_file]
+        example_file = os.path.join(dirname, 'test_data/output_example.txt')
+        if os.name == 'nt':
+            command = ['cmd', '/C', 'type', example_file]
+        else:
+            command = ['cat', example_file]
+            ec.PROC_ENCODING = 'utf-16'
         self.subject = ec.FemSimulation(command, dirname)
         f, self.config_file = tempfile.mkstemp()
         self.subject.config_file = self.config_file
         os.close(f)
 
     def test_compute_forces(self):
+        # It reads from STDOUT computed forces
         forces = self.subject.compute_forces(0, 1, 2, 3, 4, 5)
         self.assertEqual(forces.f1x, -0.17074827)
         self.assertEqual(forces.f1y, -0.01507202)
@@ -23,6 +28,7 @@ class TestFemSimulation(unittest.TestCase):
         self.assertEqual(forces.f3x, 0.34981181)
         self.assertEqual(forces.f3y, 1.94751238)
 
+        # It writes to config file positions of particles
         conf = None
         with open(self.config_file, encoding = ec.FILE_ENCODING) as conf_file:
             conf = list(map(str.strip, conf_file.readlines()))
@@ -61,6 +67,16 @@ class TestForceCache(unittest.TestCase):
         )
         self.assertEqual(self.subject.values[1].f1x, -1.007e-1)
         self.assertEqual(self.subject.values[1].f3y, 0.2)
+
+    def test_save_result(self):
+        forces = ec.TripletForces([0, 1, 2, 3, 4, 5], [1.1, 2, 3, 4, 5, 6.1])
+        self.subject.save_result(forces)
+        self.assertIn(forces, self.subject.values)
+
+        with open(self.cache_file) as cache_file:
+            lines = [line.strip() for line in cache_file if line.strip()]
+            self.assertEqual(len(lines), 3)
+            self.assertEqual(ec.TripletForces.from_string(lines[-1]), forces)
 
     def tearDown(self):
         os.remove(self.cache_file)

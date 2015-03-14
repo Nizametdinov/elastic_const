@@ -35,9 +35,14 @@ class TripletForces(object):
     def forces(self):
         return [self.f1x, self.f1y, self.f2x, self.f2y, self.f3x, self.f3y]
 
+    def __eq__(self, other):
+        if not isinstance(other, TripletForces):
+            return False
+        return self.positions == other.positions and self.forces() == other.forces()
+
     def to_string(self):
         return ' '.join(
-            map(lambda num: OUTPUT_FLOAT_FMT.format(num), self.positions + self.forces)
+            map(lambda num: OUTPUT_FLOAT_FMT.format(num), self.positions + self.forces())
         )
 
     @classmethod
@@ -63,9 +68,14 @@ class ForceCache(object):
 
     def save_result(self, triplet_forces):
         self.values.append(triplet_forces)
+        self.__append_to_file(triplet_forces)
 
     def read(self, positions):
         return next((f for f in self.values if f.positions == positions), None)
+
+    def __append_to_file(self, triplet_forces):
+        with open(self.cache_file_path, 'a') as cache_file:
+            cache_file.write(triplet_forces.to_string() + '\n')
 
 
 class FemSimulation(object):
