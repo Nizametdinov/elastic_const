@@ -12,6 +12,8 @@ RESULT_PATTERN = ('^\s*' + '(-?\d+\.\d+)\s+' * 9 +
     ''.join('(?P<f{0}x>-?\d+\.\d+)\s+(?P<f{0}y>-?\d+\.\d+)\s+(-?\d+\.\d+)\s+'.format(i) for i in range(1, 4)) +
     '(-?\d+\.\d+)\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)\s*')
 CONFIG_FILE = 'triplet_config.txt'
+FORCE_CACHE_FILE = 'computed_forces.txt'
+OUTPUT_FLOAT_FMT = '{0:.18e}'
 
 def dist_sqr(p1, p2):
     return np.sum((p1 - p2) ** 2)
@@ -30,17 +32,41 @@ class TripletForces(object):
         """
         getattr(self, 'f{0}{1}'.format(particle_num, axis))
 
+    def forces(self):
+        return [self.f1x, self.f1y, self.f2x, self.f2y, self.f3x, self.f3y]
+
+    def to_string(self):
+        return ' '.join(
+            map(lambda num: OUTPUT_FLOAT_FMT.format(num), self.positions + self.forces)
+        )
+
+    @classmethod
+    def from_string(cls, string):
+        parsed = list(map(float, string.split(' ')))
+        return cls(parsed[0:6], parsed[6:])
+
+
 class ForceCache(object):
     "This class stores computed forces"
 
-    def __init__(self, working_dir):
+    def __init__(self, working_dir, cache_file = None):
         self.values = []
+        self.cache_file_path = cache_file or path.join(working_dir, FORCE_CACHE_FILE)
+        self.__restore_cache(self.cache_file_path)
+
+    def __restore_cache(self, cache_file_path):
+        with open(cache_file_path, 'r') as cache_file:
+            for line in cache_file:
+                line = line.strip()
+                if line:
+                    self.values.append(TripletForces.from_string(line))
 
     def save_result(self, triplet_forces):
         self.values.append(triplet_forces)
 
     def read(self, positions):
-        next((f for f in self.values if f.positions == positions), None)
+        return next((f for f in self.values if f.positions == positions), None)
+
 
 class FemSimulation(object):
     def __init__(self, command_line, working_dir):
@@ -72,6 +98,7 @@ class FemSimulation(object):
             conf_file.write('y3 = {0}\n'.format(y3))
         return TripletForces([x1, y1, x2, y2, x3, y3], self.__execute())
 
+
 def derivative_of_force(simulation, particle_num, axis, positions, order = ORDER):
     """
     Parameters:
@@ -85,4 +112,3 @@ def derivative_of_force(simulation, particle_num, axis, positions, order = ORDER
         positions[variable_num] = arg
         return simulation.compute_forces(*positions).force(particle_num, axis)
     return derivative(force_func, positions[variable_num], dx=STEP, order=order)
-

@@ -3,9 +3,10 @@ import unittest
 import tempfile
 import os
 
+dirname = os.path.dirname(os.path.abspath(__file__))
+
 class TestFemSimulation(unittest.TestCase):
     def setUp(self):
-        dirname = os.path.dirname(os.path.abspath(__file__))
         example_file = os.path.join(dirname, 'test_data\\output_example.txt')
         command = ['cmd', '/C', 'type', example_file]
         self.subject = ec.FemSimulation(command, dirname)
@@ -35,6 +36,35 @@ class TestFemSimulation(unittest.TestCase):
 
     def tearDown(self):
         os.remove(self.config_file)
+
+
+class TestForceCache(unittest.TestCase):
+    def setUp(self):
+        f, self.cache_file = tempfile.mkstemp()
+        test_data = """
+            0.0 0.0 1.0 1.0e-1 1.0 0.0 -1.707e-1 -1.507e-2 -1.9323 -0.53 0.1 0.2
+            0.0 0.0 1.0 2.0e-1 1.0 1.0 -1.007e-1 -1.107e-2 -1.012 -0.53 0.1 0.2
+        """
+        with open(f, 'w') as cache_file:
+            cache_file.write(test_data)
+        self.subject = ec.ForceCache(None, cache_file = self.cache_file)
+
+    def test_restore_cache(self):
+        self.assertEqual(len(self.subject.values), 2)
+        self.assertEqual(
+            self.subject.values[0].positions,
+            [0.0, 0.0, 1.0, 0.1, 1.0, 0.0]
+        )
+        self.assertEqual(
+            self.subject.values[0].forces(),
+            [-0.1707, -0.01507, -1.9323, -0.53, 0.1, 0.2]
+        )
+        self.assertEqual(self.subject.values[1].f1x, -1.007e-1)
+        self.assertEqual(self.subject.values[1].f3y, 0.2)
+
+    def tearDown(self):
+        os.remove(self.cache_file)
+
 
 if __name__ == "__main__":
     unittest.main()
