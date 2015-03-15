@@ -1,10 +1,10 @@
 from subprocess import Popen, PIPE
 from os import path
 import re
-import numpy as np
 
 FILE_ENCODING = 'utf-16'
 PROC_ENCODING = 'cp866'
+
 RESULT_PATTERN = ('^\s*' + '(-?\d+\.\d+)\s+' * 9 +
     ''.join('(?P<f{0}x>-?\d+\.\d+)\s+(?P<f{0}y>-?\d+\.\d+)\s+(-?\d+\.\d+)\s+'.format(i) for i in range(1, 4)) +
     '(-?\d+\.\d+)\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)\s*')
@@ -12,22 +12,19 @@ CONFIG_FILE = 'triplet_config.txt'
 FORCE_CACHE_FILE = 'computed_forces.txt'
 OUTPUT_FLOAT_FMT = '{0:.18e}'
 
-def dist_sqr(p1, p2):
-    return np.sum((p1 - p2) ** 2)
-
 class TripletForces(object):
     def __init__(self, positions, forces):
         self.positions = positions
         self.f1x, self.f1y, self.f2x, self.f2y, self.f3x, self.f3y = forces
 
-    def force(particle_num, axis):
+    def force(self, particle_num, axis):
         """
         Returns force acting on particle with given number along given axis.
         Parameters:
         particle_num: 1, 2, 3
         axis: 'x' or 'y'
         """
-        getattr(self, 'f{0}{1}'.format(particle_num, axis))
+        return getattr(self, 'f{0}{1}'.format(particle_num, axis))
 
     def forces(self):
         return [self.f1x, self.f1y, self.f2x, self.f2y, self.f3x, self.f3y]
