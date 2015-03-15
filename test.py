@@ -1,4 +1,4 @@
-import elastic_const as ec
+import forces as fs
 import unittest
 import tempfile
 import os
@@ -12,8 +12,8 @@ class TestFemSimulation(unittest.TestCase):
             command = ['cmd', '/C', 'type', example_file]
         else:
             command = ['cat', example_file]
-            ec.PROC_ENCODING = 'utf-16'
-        self.subject = ec.FemSimulation(command, dirname)
+            fs.PROC_ENCODING = 'utf-16'
+        self.subject = fs.FemSimulation(command, dirname)
 
         f, self.config_file = tempfile.mkstemp()
         self.subject.config_file = self.config_file
@@ -23,7 +23,7 @@ class TestFemSimulation(unittest.TestCase):
 
     def test_compute_forces(self):
         # It reads from STDOUT computed forces
-        forces = self.subject.compute_forces(0, 1, 2, 3, 4, 5)
+        forces = self.subject.compute_forces([0, 1, 2, 3, 4, 5])
         self.assertEqual(forces.f1x, -0.17074827)
         self.assertEqual(forces.f1y, -0.01507202)
         self.assertEqual(forces.f2x, -0.17909645)
@@ -33,7 +33,7 @@ class TestFemSimulation(unittest.TestCase):
 
         # It writes to config file positions of particles
         conf = None
-        with open(self.config_file, encoding = ec.FILE_ENCODING) as conf_file:
+        with open(self.config_file, encoding = fs.FILE_ENCODING) as conf_file:
             conf = list(map(str.strip, conf_file.readlines()))
         self.assertEqual(len(conf), 6)
         self.assertIn('x1 = 0', conf)
@@ -60,7 +60,7 @@ class TestForceCache(unittest.TestCase):
         """
         with open(f, 'w') as cache_file:
             cache_file.write(test_data)
-        self.subject = ec.ForceCache(None, cache_file = self.cache_file)
+        self.subject = fs.ForceCache(None, cache_file = self.cache_file)
 
     def test_restore_cache(self):
         self.assertEqual(len(self.subject.values), 2)
@@ -76,21 +76,21 @@ class TestForceCache(unittest.TestCase):
         self.assertEqual(self.subject.values[1].f3y, 0.2)
 
     def test_save_result(self):
-        forces = ec.TripletForces([0, 1, 2, 3, 4, 5], [1.1, 2, 3, 4, 5, 6.1])
+        forces = fs.TripletForces([0, 1, 2, 3, 4, 5], [1.1, 2, 3, 4, 5, 6.1])
         self.subject.save_result(forces)
         self.assertIn(forces, self.subject.values)
 
         with open(self.cache_file) as cache_file:
             lines = [line.strip() for line in cache_file if line.strip()]
             self.assertEqual(len(lines), 3)
-            self.assertEqual(ec.TripletForces.from_string(lines[-1]), forces)
+            self.assertEqual(fs.TripletForces.from_string(lines[-1]), forces)
 
     def test_read(self):
         cached = self.subject.read([0.0, 0.0, 1.0, 0.1, 1.0, 0.0])
         self.assertEqual(cached.positions, [0.0, 0.0, 1.0, 0.1, 1.0, 0.0])
         self.assertEqual(cached.forces(), [-0.1707, -0.01507, -1.9323, -0.53, 0.1, 0.2])
 
-        forces = ec.TripletForces([0, 1, 2, 3, 4, 5], [1.1, 2, 3, 4, 5, 6.1])
+        forces = fs.TripletForces([0, 1, 2, 3, 4, 5], [1.1, 2, 3, 4, 5, 6.1])
         self.subject.save_result(forces)
         cached = self.subject.read(forces.positions)
         self.assertEqual(cached, forces)

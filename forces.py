@@ -1,11 +1,8 @@
-from scipy.misc import derivative
 from subprocess import Popen, PIPE
 from os import path
 import re
 import numpy as np
 
-STEP = 0.1
-ORDER = 5
 FILE_ENCODING = 'utf-16'
 PROC_ENCODING = 'cp866'
 RESULT_PATTERN = ('^\s*' + '(-?\d+\.\d+)\s+' * 9 +
@@ -100,37 +97,23 @@ class FemSimulation(object):
                 return self.__process_result(match)
         return None
 
-    def __create_config_file(self, x1, y1, x2, y2, x3, y3):
+    def __create_config_file(self, positions):
         with open(self.config_file, 'w', encoding = FILE_ENCODING) as conf_file:
-            conf_file.write('x1 = {0}\n'.format(x1))
-            conf_file.write('y1 = {0}\n'.format(y1))
-            conf_file.write('x2 = {0}\n'.format(x2))
-            conf_file.write('y2 = {0}\n'.format(y2))
-            conf_file.write('x3 = {0}\n'.format(x3))
-            conf_file.write('y3 = {0}\n'.format(y3))
+            conf_file.write('x1 = {0}\n'.format(positions[0]))
+            conf_file.write('y1 = {0}\n'.format(positions[1]))
+            conf_file.write('x2 = {0}\n'.format(positions[2]))
+            conf_file.write('y2 = {0}\n'.format(positions[3]))
+            conf_file.write('x3 = {0}\n'.format(positions[4]))
+            conf_file.write('y3 = {0}\n'.format(positions[5]))
 
-    def compute_forces(self, x1, y1, x2, y2, x3, y3):
+    def compute_forces(self, positions):
         "Computes forces acting on particles within given configuration"
-        cached = self.cache.read([x1, y1, x2, y2, x3, y3])
+        cached = self.cache.read(positions)
         if cached:
             return cached
 
-        self.__create_config_file(x1, y1, x2, y2, x3, y3)
-        result = TripletForces([x1, y1, x2, y2, x3, y3], self.__execute())
+        self.__create_config_file(positions)
+        result = TripletForces(positions, self.__execute())
         self.cache.save_result(result)
         return result
 
-
-def derivative_of_force(simulation, particle_num, axis, positions, order = ORDER):
-    """
-    Parameters:
-    particle_num: 1, 2, 3
-    axis: 'x' or 'y'
-    """
-    variable_num = (particle_num - 1) * 2
-    if axis == 'y': variable_num += 1
-    positions = list(positions)
-    def force_func(arg):
-        positions[variable_num] = arg
-        return simulation.compute_forces(*positions).force(particle_num, axis)
-    return derivative(force_func, positions[variable_num], dx=STEP, order=order)
