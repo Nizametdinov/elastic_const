@@ -10,12 +10,12 @@ OUTPUT_FLOAT_FMT = '{0:.18e}'
 def dist_sqr(p1, p2):
     return np.sum((p1 - p2) ** 2)
 
-class ForceDerivative(object):
-    def __init__(self, positions, particle_num, axis, value):
+class ForceDerivatives(object):
+    def __init__(self, positions, particle_num, axis, derivatives):
         self.positions = positions
         self.particle_num = particle_num
         self.axis = axis
-        self.value = value
+        self.derivatives = derivatives
 
 class ForceDerivativeComputation(object):
     def __init__(self, working_dir, simulation, order = FINITE_DIFF_ORDER, step = FINITE_DIFF_STEP):
@@ -23,8 +23,9 @@ class ForceDerivativeComputation(object):
         self.order = order
         self.step = step
 
-    def derivative_of_force(self, particle_num, axis, positions):
+    def derivative_of_forces(self, particle_num, axis, positions):
         """
+        Returns numpy array of f1x, f1y, f2x, f2y, f3x, f3y derivatives
         Parameters:
         particle_num: 1, 2, 3
         axis: 'x' or 'y'
@@ -37,6 +38,5 @@ class ForceDerivativeComputation(object):
         positions = list(positions)
         def force_func(arg):
             positions[variable_num] = arg
-            #import pdb; pdb.set_trace()
-            return self.simulation.compute_forces(positions).force(particle_num, axis)
+            return np.array(self.simulation.compute_forces(positions).forces())
         return derivative(force_func, positions[variable_num], dx=self.step, order=self.order)

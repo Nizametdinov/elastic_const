@@ -3,6 +3,7 @@ import forces as fs
 import unittest
 import tempfile
 import os
+import numpy as np
 from unittest.mock import Mock
 
 class TestForceDerivativeComputation(unittest.TestCase):
@@ -24,8 +25,12 @@ class TestForceDerivativeComputation(unittest.TestCase):
         self.subject.simulation.configure_mock(**mock_config)
 
         positions = [0., 0., 4., 0., 2., 1.]
-        dFy2_dy2 = self.subject.derivative_of_force(2, 'Y', positions)
-        self.assertEqual(round(dFy2_dy2, 12), -10.)
+        dF_dy2 = self.subject.derivative_of_forces(2, 'Y', positions)
+        expected = np.array([0., 0., 0., -10., 0., 0.])
+        self.assertTrue(
+            (np.round(dF_dy2, 12) == expected).all(),
+            '{0} != {1}'.format(dF_dy2, expected)
+        )
 
 
 if __name__ == "__main__":
