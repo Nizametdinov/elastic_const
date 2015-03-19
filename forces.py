@@ -45,12 +45,10 @@ class TripletForces(object):
         return cls(parsed[0:6], parsed[6:])
 
 
-class ForceCache(object):
-    "This class stores computed forces"
-
-    def __init__(self, working_dir, cache_file = None):
+class CacheBase(object):
+    def __init__(self, cache_file_path):
         self.values = []
-        self.cache_file_path = cache_file or path.join(working_dir, FORCE_CACHE_FILE)
+        self.cache_file_path = cache_file_path
         self.__restore_cache(self.cache_file_path)
 
     def __restore_cache(self, cache_file_path):
@@ -60,18 +58,34 @@ class ForceCache(object):
             for line in cache_file:
                 line = line.strip()
                 if line:
-                    self.values.append(TripletForces.from_string(line))
+                    self.values.append(self._value_from_string(line))
 
-    def save_result(self, triplet_forces):
-        self.values.append(triplet_forces)
-        self.__append_to_file(triplet_forces)
+    def _value_from_string(self, string):
+        raise NotImplementedError
+
+    def save_result(self, value):
+        self.values.append(value)
+        self.__append_to_file(value)
+
+    def read(self, positions):
+        raise NotImplementedError
+
+    def __append_to_file(self, value):
+        with open(self.cache_file_path, 'a') as cache_file:
+            cache_file.write(value.to_string() + '\n')
+
+class ForceCache(CacheBase):
+    "This class stores computed forces"
+
+    def __init__(self, working_dir, cache_file = None):
+        cache_file_path = cache_file or path.join(working_dir, FORCE_CACHE_FILE)
+        super(ForceCache, self).__init__(cache_file_path)
+
+    def _value_from_string(self, string):
+        return TripletForces.from_string(string)
 
     def read(self, positions):
         return next((f for f in self.values if f.positions == positions), None)
-
-    def __append_to_file(self, triplet_forces):
-        with open(self.cache_file_path, 'a') as cache_file:
-            cache_file.write(triplet_forces.to_string() + '\n')
 
 
 class FemSimulation(object):
