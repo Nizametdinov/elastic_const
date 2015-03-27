@@ -67,7 +67,7 @@ class CacheBase(object):
         self.values.append(value)
         self.__append_to_file(value)
 
-    def read(self, positions):
+    def read(self, *args):
         raise NotImplementedError
 
     def __append_to_file(self, value):

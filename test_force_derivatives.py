@@ -6,6 +6,58 @@ import os
 import numpy as np
 from unittest.mock import Mock
 
+class TestForceDerivativeCache(unittest.TestCase):
+    def setUp(self):
+        f, self.cache_file = tempfile.mkstemp()
+        test_data = """
+            x1 0.0 0.0 1.0 1.0e-1 1.0 0.0 -1.707e-1 -1.507e-2 -1.9323 -0.53 0.1 0.2
+            y1 0.0 0.0 1.0 1.0e-1 1.0 0.0 -1.032e-2 -1.112e-1 -1.232 -0.33 0.1 0.2
+            y2 0.0 0.0 1.0 2.0e-1 1.0 1.0 -1.007e-1 -1.107e-2 -1.012 -0.53 0.1 0.2
+        """
+        with open(f, 'w') as cache_file:
+            cache_file.write(test_data)
+        self.subject = fd.ForceDerivativeCache(None, cache_file = self.cache_file)
+
+    def test_restore_cache(self):
+        self.assertEqual(len(self.subject.values), 3)
+        self.assertEqual(
+            self.subject.values[0].positions,
+            [0.0, 0.0, 1.0, 0.1, 1.0, 0.0]
+        )
+        self.assertEqual(self.subject.values[0].particle_num, 1)
+        self.assertEqual(self.subject.values[0].axis, 'x')
+        self.assertEqual(
+            self.subject.values[0].derivatives,
+            [-0.1707, -0.01507, -1.9323, -0.53, 0.1, 0.2]
+        )
+        self.assertEqual(self.subject.values[2].axis, 'y')
+
+    def test_save_result(self):
+        derivatives = fd.ForceDerivatives('x', 3, [0, 1, 2, 3, 4, 5], [1.1, 2, 3, 4, 5, 6.1])
+        self.subject.save_result(derivatives)
+        self.assertIn(derivatives, self.subject.values)
+
+        with open(self.cache_file) as cache_file:
+            lines = [line.strip() for line in cache_file if line.strip()]
+            self.assertEqual(len(lines), 4)
+            self.assertEqual(fd.ForceDerivatives.from_string(lines[-1]), derivatives)
+
+    def test_read(self):
+        cached = self.subject.read('y', 1, [0.0, 0.0, 1.0, 0.1, 1.0, 0.0])
+        self.assertEqual(cached.axis, 'y')
+        self.assertEqual(cached.particle_num, 1)
+        self.assertEqual(cached.positions, [0.0, 0.0, 1.0, 0.1, 1.0, 0.0])
+        self.assertEqual(cached.derivatives, [-1.032e-2, -0.1112, -1.232, -0.33, 0.1, 0.2])
+
+        derivatives = fd.ForceDerivatives('x', 2, [0, 1, 2, 3, 4, 5], [1.1, 2, 3, 4, 5, 6.1])
+        self.subject.save_result(derivatives)
+        cached = self.subject.read('x', 2, derivatives.positions)
+        self.assertEqual(cached, derivatives)
+
+    def tearDown(self):
+        os.remove(self.cache_file)
+
+
 class TestForceDerivativeComputation(unittest.TestCase):
     def setUp(self):
         simulation = Mock()
