@@ -1,6 +1,6 @@
 from scipy.misc import derivative
 from os import path
-from forces import CacheBase
+from cache_base import CacheBase
 import numpy as np
 
 FINITE_DIFF_STEP = 0.01
@@ -77,5 +77,5 @@ class ForceDerivativeComputation(object):
         positions = list(positions)
         def force_func(arg):
             positions[variable_num] = arg
-            return np.array(self.simulation.compute_forces(positions).forces())
+            return np.array(self.simulation.compute_forces(positions).forces)
         return derivative(force_func, positions[variable_num], dx=self.step, order=self.order)

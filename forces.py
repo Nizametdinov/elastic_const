@@ -1,5 +1,6 @@
 from subprocess import Popen, PIPE
 from os import path
+from cache_base import CacheBase
 import re
 
 FILE_ENCODING = 'utf-16'
@@ -15,7 +16,7 @@ OUTPUT_FLOAT_FMT = '{0:.18e}'
 class TripletForces(object):
     def __init__(self, positions, forces):
         self.positions = positions
-        self.f1x, self.f1y, self.f2x, self.f2y, self.f3x, self.f3y = forces
+        self.forces = forces
 
     def force(self, particle_num, axis):
         """
@@ -24,19 +25,19 @@ class TripletForces(object):
         particle_num: 1, 2, 3
         axis: 'x' or 'y'
         """
-        return getattr(self, 'f{0}{1}'.format(particle_num, axis))
-
-    def forces(self):
-        return [self.f1x, self.f1y, self.f2x, self.f2y, self.f3x, self.f3y]
+        variable_num = (particle_num - 1) * 2
+        if axis.lower() == 'y':
+            variable_num += 1
+        return self.forces[variable_num]
 
     def __eq__(self, other):
         if not isinstance(other, TripletForces):
             return False
-        return self.positions == other.positions and self.forces() == other.forces()
+        return self.positions == other.positions and self.forces == other.forces
 
     def to_string(self):
         return ' '.join(
-            map(lambda num: OUTPUT_FLOAT_FMT.format(num), self.positions + self.forces())
+            map(lambda num: OUTPUT_FLOAT_FMT.format(num), self.positions + self.forces)
         )
 
     @classmethod
@@ -44,35 +45,6 @@ class TripletForces(object):
         parsed = list(map(float, string.split(' ')))
         return cls(parsed[0:6], parsed[6:])
 
-
-class CacheBase(object):
-    def __init__(self, cache_file_path):
-        self.values = []
-        self.cache_file_path = cache_file_path
-        self.__restore_cache(self.cache_file_path)
-
-    def __restore_cache(self, cache_file_path):
-        if not path.isfile(cache_file_path):
-            return
-        with open(cache_file_path, 'r') as cache_file:
-            for line in cache_file:
-                line = line.strip()
-                if line:
-                    self.values.append(self._value_from_string(line))
-
-    def _value_from_string(self, string):
-        raise NotImplementedError
-
-    def save_result(self, value):
-        self.values.append(value)
-        self.__append_to_file(value)
-
-    def read(self, *args):
-        raise NotImplementedError
-
-    def __append_to_file(self, value):
-        with open(self.cache_file_path, 'a') as cache_file:
-            cache_file.write(value.to_string() + '\n')
 
 class ForceCache(CacheBase):
     "This class stores computed forces"

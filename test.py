@@ -24,12 +24,12 @@ class TestFemSimulation(unittest.TestCase):
     def test_compute_forces(self):
         # It reads from STDOUT computed forces
         forces = self.subject.compute_forces([0, 1, 2, 3, 4, 5])
-        self.assertEqual(forces.f1x, -0.17074827)
-        self.assertEqual(forces.f1y, -0.01507202)
-        self.assertEqual(forces.f2x, -0.17909645)
-        self.assertEqual(forces.f2y, -1.93233496)
-        self.assertEqual(forces.f3x, 0.34981181)
-        self.assertEqual(forces.f3y, 1.94751238)
+        self.assertEqual(forces.force(1, 'x'), -0.17074827)
+        self.assertEqual(forces.force(1, 'y'), -0.01507202)
+        self.assertEqual(forces.force(2, 'x'), -0.17909645)
+        self.assertEqual(forces.force(2, 'y'), -1.93233496)
+        self.assertEqual(forces.force(3, 'x'), 0.34981181)
+        self.assertEqual(forces.force(3, 'y'), 1.94751238)
 
         # It writes to config file positions of particles
         conf = None
@@ -69,11 +69,11 @@ class TestForceCache(unittest.TestCase):
             [0.0, 0.0, 1.0, 0.1, 1.0, 0.0]
         )
         self.assertEqual(
-            self.subject.values[0].forces(),
+            self.subject.values[0].forces,
             [-0.1707, -0.01507, -1.9323, -0.53, 0.1, 0.2]
         )
-        self.assertEqual(self.subject.values[1].f1x, -1.007e-1)
-        self.assertEqual(self.subject.values[1].f3y, 0.2)
+        self.assertEqual(self.subject.values[1].force(1, 'x'), -1.007e-1)
+        self.assertEqual(self.subject.values[1].force(3, 'y'), 0.2)
 
     def test_save_result(self):
         forces = fs.TripletForces([0, 1, 2, 3, 4, 5], [1.1, 2, 3, 4, 5, 6.1])
@@ -88,7 +88,7 @@ class TestForceCache(unittest.TestCase):
     def test_read(self):
         cached = self.subject.read([0.0, 0.0, 1.0, 0.1, 1.0, 0.0])
         self.assertEqual(cached.positions, [0.0, 0.0, 1.0, 0.1, 1.0, 0.0])
-        self.assertEqual(cached.forces(), [-0.1707, -0.01507, -1.9323, -0.53, 0.1, 0.2])
+        self.assertEqual(cached.forces, [-0.1707, -0.01507, -1.9323, -0.53, 0.1, 0.2])
 
         forces = fs.TripletForces([0, 1, 2, 3, 4, 5], [1.1, 2, 3, 4, 5, 6.1])
         self.subject.save_result(forces)
