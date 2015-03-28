@@ -31,7 +31,8 @@ class TestFemSimulation(unittest.TestCase):
         self.assertEqual(forces.force(3, 'x'), 0.34981181)
         self.assertEqual(forces.force(3, 'y'), 1.94751238)
 
-        # It writes to config file positions of particles
+    def test_writes_to_config_file_positions_of_particles(self):
+        forces = self.subject.compute_forces([0, 1, 2, 3, 4, 5])
         conf = None
         with open(self.config_file, encoding = fs.FILE_ENCODING) as conf_file:
             conf = list(map(str.strip, conf_file.readlines()))
@@ -43,9 +44,17 @@ class TestFemSimulation(unittest.TestCase):
         self.assertIn('x3 = 4', conf)
         self.assertIn('y3 = 5', conf)
 
-        # It caches computed forces
+    def test_caches_computed_forces(self):
+        computed = self.subject.compute_forces([0, 1, 2, 3, 4, 5])
         cached = self.subject.cache.read([0, 1, 2, 3, 4, 5])
-        self.assertEqual(cached, forces)
+        self.assertEqual(cached, computed)
+
+    def test_reads_cached_value(self):
+        cached = fs.TripletForces([0, 1, 2, 3, 4, 5], [1.1, 2, 3, 4, 5, 6.1])
+        self.subject.cache.save_result(cached)
+
+        computed = self.subject.compute_forces([0, 1, 2, 3, 4, 5])
+        self.assertEqual(cached, computed)
 
     def tearDown(self):
         os.remove(self.config_file)

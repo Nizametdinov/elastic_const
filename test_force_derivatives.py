@@ -60,10 +60,11 @@ class TestForceDerivativeCache(unittest.TestCase):
 
 class TestForceDerivativeComputation(unittest.TestCase):
     def setUp(self):
+        dirname = os.path.dirname(os.path.abspath(__file__))
         simulation = Mock()
-        self.subject = fd.ForceDerivativeComputation(None, simulation, order = 3)
+        self.subject = fd.ForceDerivativeComputation(dirname, simulation, order = 3)
+        self.subject.cache.cache_file_path = os.devnull
 
-    def test_derivative_of_forces(self):
         def forces(positions):
             if positions == [0., 0., 4., 0., 2., 1.]:
                 return fs.TripletForces(positions, [-8.347, -3.884, 8.347, -3.884, 0., 7.769])
@@ -76,13 +77,30 @@ class TestForceDerivativeComputation(unittest.TestCase):
         mock_config = {'compute_forces.side_effect': forces}
         self.subject.simulation.configure_mock(**mock_config)
 
-        positions = [0., 0., 4., 0., 2., 1.]
-        dF_dy2 = self.subject.derivative_of_forces(2, 'Y', positions)
+        self.positions = [0., 0., 4., 0., 2., 1.]
+
+    def test_computes_derivative_of_forces(self):
+        dF_dy2 = self.subject.derivative_of_forces('Y', 2, self.positions)
         expected = np.array([0., 0., 0., -10., 0., 0.])
         self.assertTrue(
-            (np.round(dF_dy2, 12) == expected).all(),
+            (np.round(dF_dy2.derivatives, 12) == expected).all(),
             '{0} != {1}'.format(dF_dy2, expected)
         )
+        self.assertEqual(dF_dy2.positions, self.positions)
+        self.assertEqual(dF_dy2.axis, 'y')
+        self.assertEqual(dF_dy2.particle_num, 2)
+
+    def test_saves_computed_values_to_cache(self):
+        computed = self.subject.derivative_of_forces('y', 2, self.positions)
+        cached = self.subject.cache.read('y', 2, self.positions)
+        self.assertEqual(cached, computed)
+
+    def test_reads_cached_value(self):
+        cached = fd.ForceDerivatives('y', 2, self.positions, np.array([1.1, 2, 3, 4, 5, 6.1]))
+        self.subject.cache.save_result(cached)
+
+        computed = self.subject.derivative_of_forces('y', 2, self.positions)
+        self.assertEqual(cached, computed)
 
 
 if __name__ == "__main__":
