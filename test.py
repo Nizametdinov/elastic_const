@@ -9,7 +9,7 @@ class TestFemSimulation(unittest.TestCase):
     def setUp(self):
         example_file = os.path.join(dirname, 'test_data/output_example.txt')
         if os.name == 'nt':
-            command = ['cmd', '/C', 'type', example_file]
+            command = ['cmd', '/C', 'type', os.path.normpath(example_file)]
         else:
             command = ['cat', example_file]
             fs.PROC_ENCODING = 'utf-16'

@@ -6,9 +6,11 @@ import re
 FILE_ENCODING = 'utf-16'
 PROC_ENCODING = 'cp866'
 
-RESULT_PATTERN = ('^\s*' + '(-?\d+\.\d+)\s+' * 9 +
-    ''.join('(?P<f{0}x>-?\d+\.\d+)\s+(?P<f{0}y>-?\d+\.\d+)\s+(-?\d+\.\d+)\s+'.format(i) for i in range(1, 4)) +
-    '(-?\d+\.\d+)\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)\s*')
+FLOAT_NUM_PATTERN = '(-?\d+\.\d+(?:e[+-]\d+)?)\s+'
+FORCES_PATTERN = '(?P<f{0}x>-?\d+\.\d+(?:e[+-]\d+)?)\s+(?P<f{0}y>-?\d+\.\d+(?:e[+-]\d+)?)\s+'
+RESULT_PATTERN = ('^\s*' + FLOAT_NUM_PATTERN * 9 +
+    ''.join(FORCES_PATTERN.format(i) + FLOAT_NUM_PATTERN for i in range(1, 4)) +
+    FLOAT_NUM_PATTERN * 2 + '(-?\d+\.\d+(?:e[+-]\d+)?)\s*')
 CONFIG_FILE = 'triplet_config.txt'
 FORCE_CACHE_FILE = 'computed_forces.txt'
 OUTPUT_FLOAT_FMT = '{0:.18e}'
@@ -96,7 +98,11 @@ class FemSimulation(object):
             return cached
 
         self.__create_config_file(positions)
-        result = TripletForces(positions, self.__execute())
+        forces = self.__execute()
+        if not forces:
+            return None
+
+        result = TripletForces(positions, forces)
         self.cache.save_result(result)
         return result
 
