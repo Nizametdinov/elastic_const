@@ -6,14 +6,14 @@ import numpy as np
 FINITE_DIFF_STEP = 0.01
 FINITE_DIFF_ORDER = 5
 DERIVATIVE_CACHE_FILE = 'computed_force_derivatives.txt'
-OUTPUT_FLOAT_FMT = '{0:.18e}'
+OUTPUT_FLOAT_FMT = '{0:.14e}'
 
 def dist_sqr(p1, p2):
     return np.sum((p1 - p2) ** 2)
 
 class ForceDerivatives(object):
     def __init__(self, axis, particle_num, positions, derivatives):
-        self.positions = positions
+        self.positions = list(positions)
         self.particle_num = particle_num
         self.axis = axis.lower()
         self.derivatives = derivatives
@@ -34,7 +34,7 @@ class ForceDerivatives(object):
 
     def to_string(self):
         return '{0}{1} '.format(self.axis, self.particle_num) + ' '.join(
-            map(lambda num: OUTPUT_FLOAT_FMT.format(num), self.positions + self.derivatives)
+            map(lambda num: OUTPUT_FLOAT_FMT.format(num), self.positions + list(self.derivatives))
         )
 
     @classmethod
@@ -88,9 +88,12 @@ class ForceDerivativeComputation(object):
         var_positions = list(positions)
         def force_func(arg):
             var_positions[variable_num] = arg
-            return np.array(self.simulation.compute_forces(var_positions).forces)
+            result = np.array(self.simulation.compute_forces(var_positions).forces)
+            print('positions =', var_positions, ', forces =', result)
+            return result
 
         derivatives = derivative(force_func, positions[variable_num], dx=self.step, order=self.order)
         result = ForceDerivatives(axis, particle_num, positions, derivatives)
+        print(result)
         self.cache.save_result(result)
         return result

@@ -11,14 +11,16 @@ FORCES_PATTERN = '(?P<f{0}x>-?\d+\.\d+(?:e[+-]\d+)?)\s+(?P<f{0}y>-?\d+\.\d+(?:e[
 RESULT_PATTERN = ('^\s*' + FLOAT_NUM_PATTERN * 9 +
     ''.join(FORCES_PATTERN.format(i) + FLOAT_NUM_PATTERN for i in range(1, 4)) +
     FLOAT_NUM_PATTERN * 2 + '(-?\d+\.\d+(?:e[+-]\d+)?)\s*')
+
 CONFIG_FILE = 'triplet_config.txt'
 FORCE_CACHE_FILE = 'computed_forces.txt'
-OUTPUT_FLOAT_FMT = '{0:.18e}'
+OUTPUT_FLOAT_FMT = '{0:.14e}'
+PROCESS_TIMEOUT = 30 * 60 # seconds
 
 class TripletForces(object):
     def __init__(self, positions, forces):
-        self.positions = positions
-        self.forces = forces
+        self.positions = list(positions)
+        self.forces = list(forces)
 
     def force(self, particle_num, axis):
         """
@@ -75,7 +77,13 @@ class FemSimulation(object):
 
     def __execute(self):
         proc = Popen(self.command, stdout = PIPE, cwd = self.cwd)
-        stdout, stderr = proc.communicate()
+        try:
+            stdout, stderr = proc.communicate(timeout = PROCESS_TIMEOUT)
+        except TimeoutExpired:
+            print('TIMEOUT')
+            proc.kill()
+            stdout, stderr = proc.communicate()
+
         for line in stdout.decode(PROC_ENCODING).splitlines():
             match = self.pattern.match(line)
             if match:
