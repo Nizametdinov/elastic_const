@@ -1,6 +1,8 @@
 from subprocess import Popen, PIPE
 from os import path
 from cache_base import CacheBase
+from collections import namedtuple
+from misc import format_float
 import re
 
 FILE_ENCODING = 'utf-16'
@@ -12,10 +14,23 @@ RESULT_PATTERN = ('^\s*' + FLOAT_NUM_PATTERN * 9 +
     ''.join(FORCES_PATTERN.format(i) + FLOAT_NUM_PATTERN for i in range(1, 4)) +
     FLOAT_NUM_PATTERN * 2 + '(-?\d+\.\d+(?:e[+-]\d+)?)\s*')
 
-CONFIG_FILE = 'triplet_config.txt'
+PAIR_RESULT_PATTERN = (FLOAT_NUM_PATTERN + '(?P<f>-?\d+\.\d+(?:e[+-]\d+)?)\s' +
+    FLOAT_NUM_PATTERN * 2 + '(-?\d+\.\d+(?:e[+-]\d+)?)\s*')
+
+TRIPLET_CONFIG_FILE = 'triplet_config.txt'
+PAIR_CONFIG_FILE = 'pair_config.txt'
+
 FORCE_CACHE_FILE = 'computed_forces.txt'
-OUTPUT_FLOAT_FMT = '{0:.14e}'
 PROCESS_TIMEOUT = 30 * 60 # seconds
+
+class PairForce(namedtuple('PairForce', ['distance', 'force'])):
+    def to_string(self):
+        return format_float(self.distance) + ' ' + format_float(self.force)
+
+    @classmethod
+    def from_string(cls, string):
+        parsed = list(map(float, string.split(' ')))
+        return cls(*parsed)
 
 class TripletForces(object):
     def __init__(self, positions, forces):
@@ -41,7 +56,7 @@ class TripletForces(object):
 
     def to_string(self):
         return ' '.join(
-            map(lambda num: OUTPUT_FLOAT_FMT.format(num), self.positions + self.forces)
+            map(format_float, self.positions + self.forces)
         )
 
     @classmethod
@@ -65,15 +80,14 @@ class ForceCache(CacheBase):
 
 
 class FemSimulation(object):
-    def __init__(self, command_line, working_dir):
+    def __init__(self, command_line, working_dir, pattern, cache):
         self.cwd = working_dir
         self.command = command_line
-        self.config_file = path.join(working_dir, CONFIG_FILE)
-        self.pattern = re.compile(RESULT_PATTERN)
-        self.cache = ForceCache(working_dir)
+        self.pattern = pattern
+        self.cache = cache
 
-    def __process_result(self, match):
-        return [float(match.group(group)) for group in ['f1x', 'f1y', 'f2x', 'f2y', 'f3x', 'f3y']]
+    def _process_result(self, match, *args):
+        raise NotImplementedError
 
     def __execute(self):
         proc = Popen(self.command, stdout = PIPE, cwd = self.cwd)
@@ -87,10 +101,55 @@ class FemSimulation(object):
         for line in stdout.decode(PROC_ENCODING).splitlines():
             match = self.pattern.match(line)
             if match:
-                return self.__process_result(match)
+                return match
         return None
 
-    def __create_config_file(self, positions):
+    def _create_config_file(self, *args):
+        raise NotImplementedError
+
+    def compute_forces(self, *args):
+        "Computes forces acting on particles within given configuration"
+        cached = self.cache.read(*args)
+        if cached:
+            return cached
+
+        self._create_config_file(*args)
+        match = self.__execute()
+        if not match:
+            return None
+
+        result = self._process_result(match, *args)
+        self.cache.save_result(result)
+        return result
+
+
+class PairFemSimulation(FemSimulation):
+    def __init__(self, command_line, working_dir):
+        self.config_file = path.join(working_dir, PAIR_CONFIG_FILE)
+        pattern = re.compile(PAIR_RESULT_PATTERN)
+        cache = ForceCache(working_dir)
+        super().__init__(self, command_line, working_dir, pattern, cache)
+
+    def _process_result(self, match, distance):
+        return PairForce(distance, match.group('f'))
+
+    def _create_config_file(self, distance):
+        with open(self.config_file, 'w', encoding = FILE_ENCODING) as conf_file:
+            conf_file.write('distance = {0}'.format(distance))
+
+
+class TripletFemSimulation(FemSimulation):
+    def __init__(self, command_line, working_dir):
+        self.config_file = path.join(working_dir, TRIPLET_CONFIG_FILE)
+        pattern = re.compile(RESULT_PATTERN)
+        cache = ForceCache(working_dir)
+        super().__init__(command_line, working_dir, pattern, cache)
+
+    def _process_result(self, match, positions):
+        forces = [float(match.group(group)) for group in ['f1x', 'f1y', 'f2x', 'f2y', 'f3x', 'f3y']]
+        return TripletForces(positions, forces)
+
+    def _create_config_file(self, positions):
         with open(self.config_file, 'w', encoding = FILE_ENCODING) as conf_file:
             conf_file.write('x1 = {0}\n'.format(positions[0]))
             conf_file.write('y1 = {0}\n'.format(positions[1]))
@@ -98,19 +157,4 @@ class FemSimulation(object):
             conf_file.write('y2 = {0}\n'.format(positions[3]))
             conf_file.write('x3 = {0}\n'.format(positions[4]))
             conf_file.write('y3 = {0}\n'.format(positions[5]))
-
-    def compute_forces(self, positions):
-        "Computes forces acting on particles within given configuration"
-        cached = self.cache.read(positions)
-        if cached:
-            return cached
-
-        self.__create_config_file(positions)
-        forces = self.__execute()
-        if not forces:
-            return None
-
-        result = TripletForces(positions, forces)
-        self.cache.save_result(result)
-        return result
 

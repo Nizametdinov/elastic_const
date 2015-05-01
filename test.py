@@ -5,7 +5,7 @@ import os
 
 dirname = os.path.dirname(os.path.abspath(__file__))
 
-class TestFemSimulation(unittest.TestCase):
+class TestTripletFemSimulation(unittest.TestCase):
     def setUp(self):
         example_file = os.path.join(dirname, 'test_data/output_example.txt')
         if os.name == 'nt':
@@ -13,7 +13,7 @@ class TestFemSimulation(unittest.TestCase):
         else:
             command = ['cat', example_file]
             fs.PROC_ENCODING = 'utf-16'
-        self.subject = fs.FemSimulation(command, dirname)
+        self.subject = fs.TripletFemSimulation(command, dirname)
 
         f, self.config_file = tempfile.mkstemp()
         self.subject.config_file = self.config_file
