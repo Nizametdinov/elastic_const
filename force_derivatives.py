@@ -1,15 +1,13 @@
 from scipy.misc import derivative
 from os import path
 from cache_base import CacheBase
+from misc import format_float
 import numpy as np
+import math
 
 FINITE_DIFF_STEP = 0.01
 FINITE_DIFF_ORDER = 5
 DERIVATIVE_CACHE_FILE = 'computed_force_derivatives.txt'
-OUTPUT_FLOAT_FMT = '{0:.14e}'
-
-def dist_sqr(p1, p2):
-    return np.sum((p1 - p2) ** 2)
 
 class ForceDerivatives(object):
     def __init__(self, axis, particle_num, positions, derivatives):
@@ -34,7 +32,7 @@ class ForceDerivatives(object):
 
     def to_string(self):
         return '{0}{1} '.format(self.axis, self.particle_num) + ' '.join(
-            map(lambda num: OUTPUT_FLOAT_FMT.format(num), self.positions + list(self.derivatives))
+            map(format_float, self.positions + list(self.derivatives))
         )
 
     @classmethod
@@ -42,7 +40,6 @@ class ForceDerivatives(object):
         variable, *numbers = string.split()
         parsed = list(map(float, numbers))
         return cls(variable[0], int(variable[1]), parsed[0:6], parsed[6:])
-
 
 class ForceDerivativeCache(CacheBase):
     "This class stores computed force derivatives"
@@ -97,3 +94,15 @@ class ForceDerivativeComputation(object):
         print(result)
         self.cache.save_result(result)
         return result
+
+def sqr_distance_derivative(dfdx, dfdy, x, y):
+    "Derivative of function with respect to squared distance between (x, y) and (0, 0)"
+    return 0.5 * (dfdx/x + dfdy/y)
+
+def sqr_distance_second_derivative(d2fdx2, d2fdy2, d2fdxdy, dfdx, dfdy, x, y):
+    x2 = x * x
+    y2 = y * y
+    r2 = x2 + y2
+    p1 = r2 * (d2fdx2/x2 + d2fdy2/y2 + 2 * d2fdxdy/(x*y))
+    p2 = dfdx * (1/x - r2/(x2*x)) + dfdy * (1/y - r2/(y2*y))
+    return p1 + p2
