@@ -103,5 +103,26 @@ class TestForceDerivativeComputation(unittest.TestCase):
         self.assertEqual(cached, computed)
 
 
+class TestPairForceDerivativeComputation(object):
+    def setUp(self):
+        simulation = Mock()
+        self.subject = fs.PairForceDerivativeComputation(simulation, order = 3)
+
+        def forces(distance):
+            if distance == 3.:
+                return fs.PairForce(distance, 0.865)
+            if distance == 2.99:
+                return fs.PairForce(distance, 0.875)
+            if distance == 3.01:
+                return fs.PairForce(distance, 0.855)
+            raise ValueError('Unexpected value of distance: {0}'.format(distance))
+
+        mock_config = {'compute_forces.side_effect': forces}
+        self.subject.simulation.configure_mock(**mock_config)
+
+    def test_computes_derivative_of_force(self):
+        dF_dr = self.subject.derivative_of_force(3.)
+        self.assertEqual(dF_dr, -1)
+
 if __name__ == "__main__":
     unittest.main()

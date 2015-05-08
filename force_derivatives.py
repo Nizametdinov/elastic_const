@@ -95,14 +95,15 @@ class ForceDerivativeComputation(object):
         self.cache.save_result(result)
         return result
 
-def sqr_distance_derivative(dfdx, dfdy, x, y):
-    "Derivative of function with respect to squared distance between (x, y) and (0, 0)"
-    return 0.5 * (dfdx/x + dfdy/y)
 
-def sqr_distance_second_derivative(d2fdx2, d2fdy2, d2fdxdy, dfdx, dfdy, x, y):
-    x2 = x * x
-    y2 = y * y
-    r2 = x2 + y2
-    p1 = r2 * (d2fdx2/x2 + d2fdy2/y2 + 2 * d2fdxdy/(x*y))
-    p2 = dfdx * (1/x - r2/(x2*x)) + dfdy * (1/y - r2/(y2*y))
-    return p1 + p2
+class PairForceDerivativeComputation(object):
+    def __init__(self, simulation, order = FINITE_DIFF_ORDER, step = FINITE_DIFF_STEP):
+        self.simulation = simulation
+        self.order = order
+        self.step = step
+
+    def derivative_of_force(self, distance):
+        def force_func(arg):
+            return self.simulation.compute_forces(arg).force
+
+        return derivative(force_func, distance, dx=self.step, order=self.order)
