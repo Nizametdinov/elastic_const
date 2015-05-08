@@ -20,7 +20,8 @@ PAIR_RESULT_PATTERN = (FLOAT_NUM_PATTERN + '(?P<f>-?\d+\.\d+(?:e[+-]\d+)?)\s' +
 TRIPLET_CONFIG_FILE = 'triplet_config.txt'
 PAIR_CONFIG_FILE = 'pair_config.txt'
 
-FORCE_CACHE_FILE = 'computed_forces.txt'
+FORCE_CACHE_FILE = 'triplet_forces.txt'
+PAIR_FORCE_CACHE_FILE = 'pair_forces.txt'
 PROCESS_TIMEOUT = 30 * 60 # seconds
 
 class PairForce(namedtuple('PairForce', ['distance', 'force'])):
@@ -65,18 +66,32 @@ class TripletForces(object):
         return cls(parsed[0:6], parsed[6:])
 
 
-class ForceCache(CacheBase):
-    "This class stores computed forces"
+class TripletForceCache(CacheBase):
+    "This class stores computed forces in a system of three particles"
 
     def __init__(self, working_dir, cache_file = None):
         cache_file_path = cache_file or path.join(working_dir, FORCE_CACHE_FILE)
-        super(ForceCache, self).__init__(cache_file_path)
+        super().__init__(cache_file_path)
 
     def _value_from_string(self, string):
         return TripletForces.from_string(string)
 
     def read(self, positions):
         return next((f for f in self.values if f.positions == positions), None)
+
+
+class PairForceCache(CacheBase):
+    "This class stores computed forces in a system of two particles"
+
+    def __init__(self, working_dir, cache_file = None):
+        cache_file_path = cache_file or path.join(working_dir, PAIR_FORCE_CACHE_FILE)
+        super().__init__(cache_file_path)
+
+    def _value_from_string(self, string):
+        return PairForces.from_string(string)
+
+    def read(self, positions):
+        return next((f for f in self.values if f.distance == distance), None)
 
 
 class FemSimulation(object):
@@ -127,7 +142,7 @@ class PairFemSimulation(FemSimulation):
     def __init__(self, command_line, working_dir):
         self.config_file = path.join(working_dir, PAIR_CONFIG_FILE)
         pattern = re.compile(PAIR_RESULT_PATTERN)
-        cache = ForceCache(working_dir)
+        cache = PairForceCache(working_dir)
         super().__init__(self, command_line, working_dir, pattern, cache)
 
     def _process_result(self, match, distance):
@@ -142,7 +157,7 @@ class TripletFemSimulation(FemSimulation):
     def __init__(self, command_line, working_dir):
         self.config_file = path.join(working_dir, TRIPLET_CONFIG_FILE)
         pattern = re.compile(RESULT_PATTERN)
-        cache = ForceCache(working_dir)
+        cache = TripletForceCache(working_dir)
         super().__init__(command_line, working_dir, pattern, cache)
 
     def _process_result(self, match, positions):

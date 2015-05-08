@@ -60,7 +60,7 @@ class TestTripletFemSimulation(unittest.TestCase):
         os.remove(self.config_file)
 
 
-class TestForceCache(unittest.TestCase):
+class TestTripletForceCache(unittest.TestCase):
     def setUp(self):
         f, self.cache_file = tempfile.mkstemp()
         test_data = """
@@ -69,7 +69,7 @@ class TestForceCache(unittest.TestCase):
         """
         with open(f, 'w') as cache_file:
             cache_file.write(test_data)
-        self.subject = fs.ForceCache(None, cache_file = self.cache_file)
+        self.subject = fs.TripletForceCache(None, cache_file = self.cache_file)
 
     def test_restore_cache(self):
         self.assertEqual(len(self.subject.values), 2)
