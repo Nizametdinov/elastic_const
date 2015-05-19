@@ -2,8 +2,19 @@ import forces as fs
 import unittest
 import tempfile
 import os
+import math
 
 dirname = os.path.dirname(os.path.abspath(__file__))
+
+class TestPairForce(unittest.TestCase):
+    def setUp(self):
+        pass
+
+    def test_rotate(self):
+        force = fs.PairForce(distance = 2 * math.sqrt(2), force = 4. * math.sqrt(2))
+        force_x, force_y = force.rotate(2., -2.)
+        self.assertEqual(force_x, 4.)
+        self.assertEqual(force_y, -4.)
 
 class TestTripletFemSimulation(unittest.TestCase):
     def setUp(self):
@@ -106,6 +117,53 @@ class TestTripletForceCache(unittest.TestCase):
 
     def tearDown(self):
         os.remove(self.cache_file)
+
+
+class TestPairFemSimulation(unittest.TestCase):
+    def setUp(self):
+        example_file = os.path.join(dirname, 'test_data/pair_output_example.txt')
+        if os.name == 'nt':
+            command = ['cmd', '/C', 'type', os.path.normpath(example_file)]
+        else:
+            command = ['cat', example_file]
+            fs.PROC_ENCODING = 'utf-16'
+        self.subject = fs.PairFemSimulation(command, dirname)
+
+        f, self.config_file = tempfile.mkstemp()
+        self.subject.config_file = self.config_file
+        os.close(f)
+
+        self.subject.cache.cache_file_path = os.devnull
+
+    def test_compute_forces(self):
+        # It reads from STDOUT computed forces
+        force = self.subject.compute_forces(2.)
+        self.assertEqual(force.force, -0.17074827)
+        self.assertEqual(force.distance, 2.)
+
+    def test_writes_to_config_file_positions_of_particles(self):
+        forces = self.subject.compute_forces(2)
+        conf = None
+        with open(self.config_file, encoding = fs.FILE_ENCODING) as conf_file:
+            conf = list(map(str.strip, conf_file.readlines()))
+        self.assertEqual(len(conf), 1)
+        self.assertIn('distance = 2', conf)
+
+    def test_caches_computed_forces(self):
+        computed = self.subject.compute_forces(4)
+        cached = self.subject.cache.read(4)
+        self.assertIsNotNone(cached)
+        self.assertEqual(cached, computed)
+
+    def test_reads_cached_value(self):
+        cached = fs.PairForce(3, 1.1)
+        self.subject.cache.save_result(cached)
+
+        computed = self.subject.compute_forces(3)
+        self.assertEqual(cached, computed)
+
+    def tearDown(self):
+        os.remove(self.config_file)
 
 
 if __name__ == "__main__":

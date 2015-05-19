@@ -2,7 +2,7 @@ from subprocess import Popen, PIPE
 from os import path
 from cache_base import CacheBase
 from collections import namedtuple
-from misc import format_float
+from misc import format_float, EPSILON
 import re
 
 FILE_ENCODING = 'utf-16'
@@ -32,6 +32,17 @@ class PairForce(namedtuple('PairForce', ['distance', 'force'])):
     def from_string(cls, string):
         parsed = list(map(float, string.split(' ')))
         return cls(*parsed)
+
+    def __eq__(self, other):
+        if not isinstance(other, PairForce):
+            return False
+        return self.distance == other.distance and self.force == other.force
+
+    def rotate(self, x, y):
+        assert abs(x*x + y*y - self.distance ** 2) < EPSILON
+        force_x = self.force * x / self.distance
+        force_y = self.force * y / self.distance
+        return (force_x, force_y)
 
 class TripletForces(object):
     def __init__(self, positions, forces):
@@ -90,7 +101,7 @@ class PairForceCache(CacheBase):
     def _value_from_string(self, string):
         return PairForces.from_string(string)
 
-    def read(self, positions):
+    def read(self, distance):
         return next((f for f in self.values if f.distance == distance), None)
 
 
@@ -143,7 +154,7 @@ class PairFemSimulation(FemSimulation):
         self.config_file = path.join(working_dir, PAIR_CONFIG_FILE)
         pattern = re.compile(PAIR_RESULT_PATTERN)
         cache = PairForceCache(working_dir)
-        super().__init__(self, command_line, working_dir, pattern, cache)
+        super().__init__(command_line, working_dir, pattern, cache)
 
     def _process_result(self, match, distance):
         return PairForce(distance, match.group('f'))
