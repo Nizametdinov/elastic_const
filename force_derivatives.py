@@ -2,6 +2,7 @@ from scipy.misc import derivative
 from os import path
 from cache_base import CacheBase
 from misc import format_float
+from collections import namedtuple
 import numpy as np
 import math
 
@@ -40,6 +41,17 @@ class ForceDerivatives(object):
         variable, *numbers = string.split()
         parsed = list(map(float, numbers))
         return cls(variable[0], int(variable[1]), parsed[0:6], parsed[6:])
+
+
+class PairForceDerivative(namedtuple('PairForceDerivative', ['distance', 'derivative', 'force'])):
+    def rotate(self, x, y):
+        distance_sqr = self.distance * self.distance
+        dFx_dx = self.derivative * x * x / distance_sqr
+        dFx_dx += self.force * (2 * distance_sqr - x) / (2 * r)
+        dFy_dy = self.derivative * y * y / distance_sqr
+        dFy_dy += self.force * (2 * distance_sqr - y) / (2 * r)
+        return (dFx_dx, dFy_dy)
+
 
 class ForceDerivativeCache(CacheBase):
     "This class stores computed force derivatives"
@@ -106,4 +118,7 @@ class PairForceDerivativeComputation(object):
         def force_func(arg):
             return self.simulation.compute_forces(arg).force
 
-        return derivative(force_func, distance, dx=self.step, order=self.order)
+        force = self.simulation.compute_forces(distance).force
+        dF_dr = derivative(force_func, distance, dx=self.step, order=self.order)
+        result = PairForceDerivative(distance, dF_dr, force)
+        return result
