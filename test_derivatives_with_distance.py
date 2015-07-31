@@ -15,5 +15,12 @@ class TestPotential3DistanceDerivatives(unittest.TestCase):
         self.assertEqual(renumbered.derivatives(), (2, 3, 1))
 
 
+class TestPotentialDerivativesComputation(unittest.TestCase):
+    def setUp(self):
+        self.subject = PotentialDerivativesComputation(None, None, '')
+
+    def test_potential2_derivative(self):
+        pass
+
 if __name__ == "__main__":
     unittest.main()
