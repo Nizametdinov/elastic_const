@@ -1,4 +1,4 @@
-from subprocess import Popen, PIPE
+from subprocess import Popen, PIPE, TimeoutExpired
 from os import path
 from cache_base import CacheBase
 from collections import namedtuple
@@ -11,18 +11,19 @@ PROC_ENCODING = 'cp866'
 FLOAT_NUM_PATTERN = '(-?\d+\.\d+(?:e[+-]\d+)?)\s+'
 FORCES_PATTERN = '(?P<f{0}x>-?\d+\.\d+(?:e[+-]\d+)?)\s+(?P<f{0}y>-?\d+\.\d+(?:e[+-]\d+)?)\s+'
 RESULT_PATTERN = ('^\s*' + FLOAT_NUM_PATTERN * 9 +
-    ''.join(FORCES_PATTERN.format(i) + FLOAT_NUM_PATTERN for i in range(1, 4)) +
-    FLOAT_NUM_PATTERN * 2 + '(-?\d+\.\d+(?:e[+-]\d+)?)\s*')
+                  ''.join(FORCES_PATTERN.format(i) + FLOAT_NUM_PATTERN for i in range(1, 4)) +
+                  FLOAT_NUM_PATTERN * 2 + '(-?\d+\.\d+(?:e[+-]\d+)?)\s*')
 
 PAIR_RESULT_PATTERN = (FLOAT_NUM_PATTERN + '(?P<f>-?\d+\.\d+(?:e[+-]\d+)?)\s' +
-    FLOAT_NUM_PATTERN * 2 + '(-?\d+\.\d+(?:e[+-]\d+)?)\s*')
+                       FLOAT_NUM_PATTERN * 2 + '(-?\d+\.\d+(?:e[+-]\d+)?)\s*')
 
 TRIPLET_CONFIG_FILE = 'triplet_config.txt'
 PAIR_CONFIG_FILE = 'pair_config.txt'
 
 FORCE_CACHE_FILE = 'triplet_forces.txt'
 PAIR_FORCE_CACHE_FILE = 'pair_forces.txt'
-PROCESS_TIMEOUT = 30 * 60 # seconds
+PROCESS_TIMEOUT = 30 * 60  # seconds
+
 
 class PairForce(namedtuple('PairForce', ['distance', 'force'])):
     def to_string(self):
@@ -39,10 +40,11 @@ class PairForce(namedtuple('PairForce', ['distance', 'force'])):
         return self.distance == other.distance and self.force == other.force
 
     def rotate(self, x, y):
-        assert abs(x*x + y*y - self.distance ** 2) < EPSILON
+        assert abs(x * x + y * y - self.distance ** 2) < EPSILON
         force_x = self.force * x / self.distance
         force_y = self.force * y / self.distance
         return (force_x, force_y)
+
 
 class TripletForces(object):
     def __init__(self, positions, forces):
@@ -80,7 +82,7 @@ class TripletForces(object):
 class TripletForceCache(CacheBase):
     "This class stores computed forces in a system of three particles"
 
-    def __init__(self, working_dir, cache_file = None):
+    def __init__(self, working_dir, cache_file=None):
         cache_file_path = cache_file or path.join(working_dir, FORCE_CACHE_FILE)
         super().__init__(cache_file_path)
 
@@ -94,12 +96,12 @@ class TripletForceCache(CacheBase):
 class PairForceCache(CacheBase):
     "This class stores computed forces in a system of two particles"
 
-    def __init__(self, working_dir, cache_file = None):
+    def __init__(self, working_dir, cache_file=None):
         cache_file_path = cache_file or path.join(working_dir, PAIR_FORCE_CACHE_FILE)
         super().__init__(cache_file_path)
 
     def _value_from_string(self, string):
-        return PairForces.from_string(string)
+        return PairForce.from_string(string)
 
     def read(self, distance):
         return next((f for f in self.values if f.distance == distance), None)
@@ -116,9 +118,9 @@ class FemSimulation(object):
         raise NotImplementedError
 
     def __execute(self):
-        proc = Popen(self.command, stdout = PIPE, cwd = self.cwd)
+        proc = Popen(self.command, stdout=PIPE, cwd=self.cwd)
         try:
-            stdout, stderr = proc.communicate(timeout = PROCESS_TIMEOUT)
+            stdout, stderr = proc.communicate(timeout=PROCESS_TIMEOUT)
         except TimeoutExpired:
             print('TIMEOUT')
             proc.kill()
@@ -160,7 +162,7 @@ class PairFemSimulation(FemSimulation):
         return PairForce(distance, match.group('f'))
 
     def _create_config_file(self, distance):
-        with open(self.config_file, 'w', encoding = FILE_ENCODING) as conf_file:
+        with open(self.config_file, 'w', encoding=FILE_ENCODING) as conf_file:
             conf_file.write('distance = {0}'.format(distance))
 
 
@@ -176,11 +178,10 @@ class TripletFemSimulation(FemSimulation):
         return TripletForces(positions, forces)
 
     def _create_config_file(self, positions):
-        with open(self.config_file, 'w', encoding = FILE_ENCODING) as conf_file:
+        with open(self.config_file, 'w', encoding=FILE_ENCODING) as conf_file:
             conf_file.write('x1 = {0}\n'.format(positions[0]))
             conf_file.write('y1 = {0}\n'.format(positions[1]))
             conf_file.write('x2 = {0}\n'.format(positions[2]))
             conf_file.write('y2 = {0}\n'.format(positions[3]))
             conf_file.write('x3 = {0}\n'.format(positions[4]))
             conf_file.write('y3 = {0}\n'.format(positions[5]))
-

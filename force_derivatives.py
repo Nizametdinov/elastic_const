@@ -10,6 +10,7 @@ FINITE_DIFF_STEP = 0.01
 FINITE_DIFF_ORDER = 5
 DERIVATIVE_CACHE_FILE = 'computed_force_derivatives.txt'
 
+
 class ForceDerivatives(object):
     def __init__(self, axis, particle_num, positions, derivatives):
         self.positions = list(positions)
@@ -28,7 +29,7 @@ class ForceDerivatives(object):
 
     def __repr__(self):
         return 'ForceDerivatives("{0}", {1}, {2}, {3})'.format(
-                self.axis, self.particle_num, self.positions, self.derivatives
+            self.axis, self.particle_num, self.positions, self.derivatives
         )
 
     def to_string(self):
@@ -45,18 +46,25 @@ class ForceDerivatives(object):
 
 class PairForceDerivative(namedtuple('PairForceDerivative', ['distance', 'derivative', 'force'])):
     def rotate(self, x, y):
+        """
+        Compute derivatives of x and y components of force acting on second particle when it has
+        coordinates (x, y) and first particle has coordinates (0, 0)
+        """
         distance_sqr = self.distance * self.distance
         dFx_dx = self.derivative * x * x / distance_sqr
-        dFx_dx += self.force * (2 * distance_sqr - x) / (2 * r)
+        dFx_dx += self.force * y * y / (distance_sqr * self.distance)
         dFy_dy = self.derivative * y * y / distance_sqr
-        dFy_dy += self.force * (2 * distance_sqr - y) / (2 * r)
-        return (dFx_dx, dFy_dy)
+        dFy_dy += self.force * x * x / (distance_sqr * self.distance)
+        dFx_dy = self.derivative * x * y / distance_sqr
+        dFx_dy -= self.force * x * y / (distance_sqr * self.distance)
+        # dFx_dy == dFy_dx
+        return (dFx_dx, dFx_dy, dFy_dy)
 
 
 class ForceDerivativeCache(CacheBase):
     "This class stores computed force derivatives"
 
-    def __init__(self, working_dir, cache_file = None):
+    def __init__(self, working_dir, cache_file=None):
         cache_file_path = cache_file or path.join(working_dir, DERIVATIVE_CACHE_FILE)
         super().__init__(cache_file_path)
 
@@ -72,7 +80,7 @@ class ForceDerivativeCache(CacheBase):
 
 
 class ForceDerivativeComputation(object):
-    def __init__(self, working_dir, simulation, order = FINITE_DIFF_ORDER, step = FINITE_DIFF_STEP):
+    def __init__(self, working_dir, simulation, order=FINITE_DIFF_ORDER, step=FINITE_DIFF_STEP):
         self.simulation = simulation
         self.order = order
         self.step = step
@@ -95,6 +103,7 @@ class ForceDerivativeComputation(object):
         if axis == 'y':
             variable_num += 1
         var_positions = list(positions)
+
         def force_func(arg):
             var_positions[variable_num] = arg
             result = np.array(self.simulation.compute_forces(var_positions).forces)
@@ -109,7 +118,7 @@ class ForceDerivativeComputation(object):
 
 
 class PairForceDerivativeComputation(object):
-    def __init__(self, simulation, order = FINITE_DIFF_ORDER, step = FINITE_DIFF_STEP):
+    def __init__(self, simulation, order=FINITE_DIFF_ORDER, step=FINITE_DIFF_STEP):
         self.simulation = simulation
         self.order = order
         self.step = step

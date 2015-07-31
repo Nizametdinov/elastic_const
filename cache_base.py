@@ -1,5 +1,6 @@
 from os import path
 
+
 class CacheBase(object):
     def __init__(self, cache_file_path):
         self.values = []

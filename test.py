@@ -121,7 +121,7 @@ class TestTripletForceCache(unittest.TestCase):
 
 class TestPairFemSimulation(unittest.TestCase):
     def setUp(self):
-        example_file = os.path.join(dirname, 'test_data/pair_output_example.txt')
+        example_file = os.path.join(dirname, 'test_data/2particles_example_output.txt')
         if os.name == 'nt':
             command = ['cmd', '/C', 'type', os.path.normpath(example_file)]
         else:
@@ -137,9 +137,9 @@ class TestPairFemSimulation(unittest.TestCase):
 
     def test_compute_forces(self):
         # It reads from STDOUT computed forces
-        force = self.subject.compute_forces(2.)
-        self.assertEqual(force.force, -0.17074827)
-        self.assertEqual(force.distance, 2.)
+        force = self.subject.compute_forces(3.)
+        self.assertEqual(force.force, 2.727838374946)
+        self.assertEqual(force.distance, 3.)
 
     def test_writes_to_config_file_positions_of_particles(self):
         forces = self.subject.compute_forces(2)
