@@ -4,7 +4,6 @@ from elastic_const.cache_base import CacheBase
 from elastic_const.misc import format_float
 from collections import namedtuple
 import numpy as np
-import math
 
 FINITE_DIFF_STEP = 0.01
 FINITE_DIFF_ORDER = 5
@@ -17,6 +16,18 @@ class ForceDerivatives(object):
         self.particle_num = particle_num
         self.axis = axis.lower()
         self.derivatives = derivatives
+
+    def derivative(self, particle_num, axis):
+        """
+        Returns derivative of force acting on particle with given number along given axis.
+        Parameters:
+        particle_num: 1, 2, 3
+        axis: 'x' or 'y'
+        """
+        variable_num = (particle_num - 1) * 2
+        if axis.lower() == 'y':
+            variable_num += 1
+        return self.derivatives[variable_num]
 
     def __eq__(self, other):
         if not isinstance(other, ForceDerivatives):

@@ -104,10 +104,10 @@ class TestForceDerivativeComputation(unittest.TestCase):
         self.assertEqual(cached, computed)
 
 
-class TestPairForceDerivativeComputation(object):
+class TestPairForceDerivativeComputation(unittest.TestCase):
     def setUp(self):
         simulation = Mock()
-        self.subject = fs.PairForceDerivativeComputation(simulation, order=3)
+        self.subject = fd.PairForceDerivativeComputation(simulation, order=3)
 
         def forces(distance):
             if distance == 3.:
@@ -123,8 +123,20 @@ class TestPairForceDerivativeComputation(object):
 
     def test_computes_derivative_of_force(self):
         dF_dr = self.subject.derivative_of_force(3.)
-        self.assertEqual(dF_dr, -1)
+        self.assertEqual(round(dF_dr.derivative), -1.)
 
+
+class TestForceDerivatives(unittest.TestCase):
+    def setUp(self):
+        self.subject = fd.ForceDerivatives('x', 2, [0, 1, 2, 3, 4, 5], np.array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6]))
+
+    def test_derivative(self):
+        self.assertEqual(self.subject.derivative(1, 'x'), 0.1)
+        self.assertEqual(self.subject.derivative(1, 'y'), 0.2)
+        self.assertEqual(self.subject.derivative(2, 'x'), 0.3)
+        self.assertEqual(self.subject.derivative(2, 'y'), 0.4)
+        self.assertEqual(self.subject.derivative(3, 'x'), 0.5)
+        self.assertEqual(self.subject.derivative(3, 'y'), 0.6)
 
 if __name__ == "__main__":
     unittest.main()
