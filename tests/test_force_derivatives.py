@@ -1,10 +1,11 @@
-import force_derivatives as fd
-import forces as fs
+import elastic_const.force_derivatives as fd
+import elastic_const.forces as fs
 import unittest
 import tempfile
 import os
 import numpy as np
 from unittest.mock import Mock
+
 
 class TestForceDerivativeCache(unittest.TestCase):
     def setUp(self):
@@ -16,7 +17,7 @@ class TestForceDerivativeCache(unittest.TestCase):
         """
         with open(f, 'w') as cache_file:
             cache_file.write(test_data)
-        self.subject = fd.ForceDerivativeCache(None, cache_file = self.cache_file)
+        self.subject = fd.ForceDerivativeCache(None, cache_file=self.cache_file)
 
     def test_restore_cache(self):
         self.assertEqual(len(self.subject.values), 3)
@@ -62,7 +63,7 @@ class TestForceDerivativeComputation(unittest.TestCase):
     def setUp(self):
         dirname = os.path.dirname(os.path.abspath(__file__))
         simulation = Mock()
-        self.subject = fd.ForceDerivativeComputation(dirname, simulation, order = 3)
+        self.subject = fd.ForceDerivativeComputation(dirname, simulation, order=3)
         self.subject.cache.cache_file_path = os.devnull
 
         def forces(positions):
@@ -106,7 +107,7 @@ class TestForceDerivativeComputation(unittest.TestCase):
 class TestPairForceDerivativeComputation(object):
     def setUp(self):
         simulation = Mock()
-        self.subject = fs.PairForceDerivativeComputation(simulation, order = 3)
+        self.subject = fs.PairForceDerivativeComputation(simulation, order=3)
 
         def forces(distance):
             if distance == 3.:
@@ -123,6 +124,7 @@ class TestPairForceDerivativeComputation(object):
     def test_computes_derivative_of_force(self):
         dF_dr = self.subject.derivative_of_force(3.)
         self.assertEqual(dF_dr, -1)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,6 +1,7 @@
-from derivatives_with_distance import *
+from elastic_const.derivatives_with_distance import *
 import unittest
 import numpy as np
+
 
 class TestPotential3DistanceDerivatives(unittest.TestCase):
     def setUp(self):
@@ -21,6 +22,7 @@ class TestPotentialDerivativesComputation(unittest.TestCase):
 
     def test_potential2_derivative(self):
         pass
+
 
 if __name__ == "__main__":
     unittest.main()

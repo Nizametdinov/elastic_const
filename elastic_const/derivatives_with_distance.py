@@ -1,9 +1,9 @@
-from misc import format_float, equal_vectors, EPSILON
-from forces import PairFemSimulation, TripletFemSimulation
-from force_derivatives import ForceDerivativeComputation, PairForceDerivativeComputation
+from elastic_const.misc import format_float, equal_vectors, EPSILON
+from elastic_const.forces import PairFemSimulation, TripletFemSimulation
+from elastic_const.force_derivatives import ForceDerivativeComputation, PairForceDerivativeComputation
 from collections import namedtuple
 from os import path
-import cache_base
+import elastic_const.cache_base as cache_base
 import numpy as np
 import math
 
