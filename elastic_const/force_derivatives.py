@@ -56,11 +56,13 @@ class ForceDerivatives(object):
 
 
 class PairForceDerivative(namedtuple('PairForceDerivative', ['distance', 'derivative', 'force'])):
-    def rotate(self, x, y):
+    def rotate(self, to, origin):
         """
         Compute derivatives of x and y components of force acting on second particle when it has
-        coordinates (x, y) and first particle has coordinates (0, 0)
+        coordinates `to` and first particle has coordinates `origin`
         """
+        x = to[0] - origin[0]
+        y = to[1] - origin[1]
         distance_sqr = self.distance * self.distance
         dFx_dx = self.derivative * x * x / distance_sqr
         dFx_dx += self.force * y * y / (distance_sqr * self.distance)
@@ -69,7 +71,7 @@ class PairForceDerivative(namedtuple('PairForceDerivative', ['distance', 'deriva
         dFx_dy = self.derivative * x * y / distance_sqr
         dFx_dy -= self.force * x * y / (distance_sqr * self.distance)
         # dFx_dy == dFy_dx
-        return (dFx_dx, dFx_dy, dFy_dy)
+        return dFx_dx, dFx_dy, dFy_dy
 
 
 class ForceDerivativeCache(CacheBase):

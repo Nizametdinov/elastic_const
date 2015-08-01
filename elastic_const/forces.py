@@ -39,11 +39,11 @@ class PairForce(namedtuple('PairForce', ['distance', 'force'])):
             return False
         return self.distance == other.distance and self.force == other.force
 
-    def rotate(self, x, y):
-        assert abs(x * x + y * y - self.distance ** 2) < EPSILON
-        force_x = self.force * x / self.distance
-        force_y = self.force * y / self.distance
-        return (force_x, force_y)
+    def rotate(self, to, origin):
+        assert abs((to[0] - origin[0]) ** 2 + (to[1] - origin[1]) ** 2 - self.distance ** 2) < EPSILON
+        force_x = self.force * (to[0] - origin[0]) / self.distance
+        force_y = self.force * (to[1] - origin[1]) / self.distance
+        return force_x, force_y
 
 
 class TripletForces(object):

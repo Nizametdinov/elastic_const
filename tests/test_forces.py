@@ -3,6 +3,7 @@ import unittest
 import tempfile
 import os
 import math
+import numpy.testing as np_test
 
 dirname = os.path.dirname(os.path.abspath(__file__))
 
@@ -13,9 +14,13 @@ class TestPairForce(unittest.TestCase):
 
     def test_rotate(self):
         force = fs.PairForce(distance=2 * math.sqrt(2), force=4. * math.sqrt(2))
-        force_x, force_y = force.rotate(2., -2.)
-        self.assertEqual(force_x, 4.)
-        self.assertEqual(force_y, -4.)
+        force_x, force_y = force.rotate([2., -2.], origin=[0., 0.])
+        np_test.assert_almost_equal(force_x, 4.)
+        np_test.assert_almost_equal(force_y, -4.)
+
+        force_x, force_y = force.rotate([2. * math.sqrt(2), -2.], origin=[0., -2.])
+        np_test.assert_almost_equal(force_x, 4. * math.sqrt(2))
+        np_test.assert_almost_equal(force_y, 0.)
 
 
 class TestTripletFemSimulation(unittest.TestCase):
