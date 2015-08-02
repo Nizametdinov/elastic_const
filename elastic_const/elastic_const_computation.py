@@ -1,6 +1,4 @@
 import math
-import elastic_const.forces as fs
-import elastic_const.force_derivatives as fd
 
 
 class Configuration(object):
@@ -26,7 +24,7 @@ class Configuration(object):
         self.triplet_force_derivatives = {}
 
     def f2(self, pair, coord):
-        if not self.pair_forces[pair]:
+        if not self.pair_forces.get(pair, None):
             self.pair_forces[pair] = self.pair_fem.compute_forces(self.r[pair])
             self.pair_forces[pair[::-1]] = self.pair_forces[pair]
         p1, p2 = pair
@@ -37,7 +35,7 @@ class Configuration(object):
         if p1 != dparticle and p2 != dparticle:
             return 0.
 
-        if not self.pair_force_derivatives[pair]:
+        if not self.pair_force_derivatives.get(pair, None):
             self.pair_force_derivatives[pair] = self.pair_fdc.derivative_of_force(self.r[pair])
             self.pair_force_derivatives[pair[::-1]] = self.pair_force_derivatives[pair]
         if coord == 1 and dcoord == 1:
@@ -62,7 +60,7 @@ class Configuration(object):
         key = dparticle + str(dcoord)
         dcoord_letter = self._coord_letter(dcoord)
         dp_num = self._particle_num(dparticle)
-        if not self.triplet_force_derivatives[key]:
+        if not self.triplet_force_derivatives.get(key, None):
             self.triplet_force_derivatives[key] = self.fdc.derivative_of_forces(
                 dcoord_letter, dp_num, [0, 0, self.m[0], self.m[1], self.n[0], self.n[1]]
             )
@@ -112,15 +110,8 @@ def c_αβστ_mn(conf, α, β, σ, τ):
     return c
 
 
-def compute_constants():
-    dirname = ''
-    fem = fs.TripletFemSimulation([], dirname)
-    pair_fem = fs.PairFemSimulation([], dirname)
-    fdc = fd.ForceDerivativeComputation(dirname, fem)
-    pair_fdc = fd.PairForceDerivativeComputation(pair_fem)
-
-    a = 1.0
-    r = 0.5
+def compute_constants(fem, pair_fem, fdc, pair_fdc):
+    a = 3.0
 
     first_order = [[1, 0], [0, 1], [-1, 0], [0, -1]]
     second_order = [[1, 1], [-1, 1], [-1, -1], [1, -1]]
@@ -130,9 +121,12 @@ def compute_constants():
     c1212 = 0
 
     for i, m in enumerate(first_order):
+        m = [x * a for x in m]
         for j, n in enumerate(first_order):
             if j <= i:
                 continue
+            n = [x * a for x in n]
+            print('m =', m, '; n =', n)
 
             conf = Configuration(m, n, fem, pair_fem, fdc, pair_fdc)
 
