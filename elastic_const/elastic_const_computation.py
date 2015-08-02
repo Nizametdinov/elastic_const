@@ -4,6 +4,7 @@ import elastic_const.force_derivatives as fd
 
 
 class Configuration(object):
+    """This class describes system of 3 particles with coordinates l=[0,0], m, n"""
     def __init__(self, m, n, fem, pair_fem, fdc, pair_fdc):
         self.m = m
         self.n = n
@@ -33,7 +34,8 @@ class Configuration(object):
 
     def dF2(self, pair, coord, dparticle, dcoord):
         p1, p2 = pair
-        assert p1 == dparticle or p2 == dparticle
+        if p1 != dparticle and p2 != dparticle:
+            return 0.
 
         if not self.pair_force_derivatives[pair]:
             self.pair_force_derivatives[pair] = self.pair_fdc.derivative_of_force(self.r[pair])
@@ -51,10 +53,10 @@ class Configuration(object):
             return -dF2
 
     def ΔF(self, particle, coord):
-        coord = self._coord_letter(coord)
+        coord_letter = self._coord_letter(coord)
         p_num = self._particle_num(particle)
         pairs = self._pairs_for(particle)
-        return self.triplet_forces.force(p_num, coord) - self.f2(pairs[0], coord) - self.f2(pairs[1], coord)
+        return self.triplet_forces.force(p_num, coord_letter) - self.f2(pairs[0], coord) - self.f2(pairs[1], coord)
 
     def dΔF(self, particle, coord, dparticle, dcoord):
         key = dparticle + str(dcoord)
@@ -67,8 +69,8 @@ class Configuration(object):
         coord_letter = self._coord_letter(coord)
         p_num = self._particle_num(particle)
         pairs = self._pairs_for(particle)
-        dF2_1 = self.dF2(pairs[0], coord, dcoord)
-        dF2_2 = self.dF2(pairs[1], coord, dcoord)
+        dF2_1 = self.dF2(pairs[0], coord, dparticle, dcoord)
+        dF2_2 = self.dF2(pairs[1], coord, dparticle, dcoord)
         return self.triplet_force_derivatives[key].derivative(p_num, coord_letter) - dF2_1 - dF2_2
 
     def _coord_letter(self, coord):
@@ -81,13 +83,21 @@ class Configuration(object):
         return {'m': ['ml', 'mn'], 'n': ['nl', 'nm']}[particle]
 
 
-def c_αβστ(conf, α, β, σ, τ):
+def c_αβστ_m(conf, α, β, σ, τ):
+    force2_m_β = conf.f2('ml', β)
+    dF2_m_σ_dm_τ = conf.dF2('ml', σ, 'm', τ)
+    c = conf.m[α] * conf.m[β] * dF2_m_σ_dm_τ
+    if α == β:
+        c -= conf.m[α] * force2_m_β
+    return c
+
+def c_αβστ_mn(conf, α, β, σ, τ):
     dΔF_m_β_dm_τ = conf.dΔF('m', β, 'm', τ)
     dΔF_n_β_dm_τ = conf.dΔF('n', β, 'm', τ)
 
     dΔF_m_β_dn_τ = conf.dΔF('m', β, 'n', τ)
     dΔF_n_β_dn_τ = conf.dΔF('n', β, 'n', τ)
-    # check if dΔF_n_x_dm_x == dΔF_m_x_dn_x
+    # check if dΔF_n_β_dm_τ == dΔF_m_β_dn_τ when β == τ
 
     c  = conf.m[α] * conf.m[σ] * dΔF_m_β_dm_τ
     c += conf.m[α] * conf.n[σ] * dΔF_m_β_dn_τ
@@ -116,10 +126,10 @@ def compute_constants():
     second_order = [[1, 1], [-1, 1], [-1, -1], [1, -1]]
     c11 = 0
     c1111 = 0
+    c1122 = 0
+    c1212 = 0
 
     for i, m in enumerate(first_order):
-        r = math.sqrt(m[0] * m[0] + m[1] * m[1])
-
         for j, n in enumerate(first_order):
             if j <= i:
                 continue
@@ -128,26 +138,19 @@ def compute_constants():
 
             if j == i + 1:
                 force2_m_x = conf.f2('ml', 1)
-                dF2_m_x_dx = conf.dF2('ml', 1, 'm', 1)
 
                 c11 += m[0] * force2_m_x
-                c1111 += m[0] * m[0] * dF2_m_x_dx - m[0] * force2_m_x
+                c1111 += c_αβστ_m(conf, 1, 1, 1, 1)
+                c1122 += c_αβστ_m(conf, 1, 1, 2, 2)
+                c1212 += c_αβστ_m(conf, 1, 2, 1, 2)
 
             ΔF_m_x = conf.ΔF('m', 1)
             ΔF_n_x = conf.ΔF('n', 1)
 
-            dΔF_m_x_dm_x = conf.dΔF('m', 1, 'm', 1)
-            dΔF_n_x_dm_x = conf.dΔF('n', 1, 'm', 1)
-
-            dΔF_m_x_dn_x = conf.dΔF('m', 1, 'n', 1)
-            dΔF_n_x_dn_x = conf.dΔF('n', 1, 'n', 1)
-            # check if dΔF_n_x_dm_x == dΔF_m_x_dn_x
-
             c11 += m[0] * ΔF_m_x + m[1] * ΔF_n_x
 
-            c1111 += m[0] * m[0] * dΔF_m_x_dm_x
-            c1111 += m[0] * n[0] * dΔF_m_x_dn_x
-            c1111 += n[0] * m[0] * dΔF_n_x_dm_x
-            c1111 += n[0] * n[0] * dΔF_n_x_dn_x
-            c1111 -= m[0] * ΔF_m_x + n[0] * ΔF_n_x
+            c1111 += c_αβστ_mn(conf, 1, 1, 1, 1)
+            c1122 += c_αβστ_mn(conf, 1, 1, 2, 2)
+            c1212 += c_αβστ_mn(conf, 1, 2, 1, 2)
 
+    return c11, c1111, c1122, c1212
