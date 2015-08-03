@@ -24,7 +24,7 @@ class Configuration(object):
         self.triplet_force_derivatives = {}
 
     def f2(self, pair, coord):
-        if not self.pair_forces.get(pair, None):
+        if pair not in self.pair_forces:
             self.pair_forces[pair] = self.pair_fem.compute_forces(self.r[pair])
             self.pair_forces[pair[::-1]] = self.pair_forces[pair]
         p1, p2 = pair
@@ -35,7 +35,7 @@ class Configuration(object):
         if p1 != dparticle and p2 != dparticle:
             return 0.
 
-        if not self.pair_force_derivatives.get(pair, None):
+        if pair not in self.pair_force_derivatives:
             self.pair_force_derivatives[pair] = self.pair_fdc.derivative_of_force(self.r[pair])
             self.pair_force_derivatives[pair[::-1]] = self.pair_force_derivatives[pair]
         if coord == 1 and dcoord == 1:
@@ -60,7 +60,7 @@ class Configuration(object):
         key = dparticle + str(dcoord)
         dcoord_letter = self._coord_letter(dcoord)
         dp_num = self._particle_num(dparticle)
-        if not self.triplet_force_derivatives.get(key, None):
+        if key not in self.triplet_force_derivatives:
             self.triplet_force_derivatives[key] = self.fdc.derivative_of_forces(
                 dcoord_letter, dp_num, [0, 0, self.m[0], self.m[1], self.n[0], self.n[1]]
             )

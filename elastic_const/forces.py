@@ -4,6 +4,7 @@ from elastic_const.cache_base import CacheBase
 from collections import namedtuple
 from elastic_const.misc import format_float, EPSILON
 import re
+import numpy as np
 
 FILE_ENCODING = 'utf-16'
 PROC_ENCODING = 'cp866'
@@ -68,6 +69,9 @@ class TripletForces(object):
             return False
         return self.positions == other.positions and self.forces == other.forces
 
+    def have_coords(self, positions):
+        return np.allclose(self.positions, positions)
+
     def to_string(self):
         return ' '.join(
             map(format_float, self.positions + self.forces)
@@ -90,7 +94,7 @@ class TripletForceCache(CacheBase):
         return TripletForces.from_string(string)
 
     def read(self, positions):
-        return next((f for f in self.values if f.positions == positions), None)
+        return next((f for f in self.values if f.have_coords(positions)), None)
 
 
 class PairForceCache(CacheBase):
@@ -104,7 +108,7 @@ class PairForceCache(CacheBase):
         return PairForce.from_string(string)
 
     def read(self, distance):
-        return next((f for f in self.values if f.distance == distance), None)
+        return next((f for f in self.values if np.allclose(f.distance, distance)), None)
 
 
 class FemSimulation(object):

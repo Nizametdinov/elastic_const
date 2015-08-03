@@ -122,6 +122,10 @@ class TestTripletForceCache(unittest.TestCase):
         cached = self.subject.read(forces.positions)
         self.assertEqual(cached, forces)
 
+        # compares float with tolerance
+        cached = self.subject.read([0, 0.7 + 0.2 + 0.1, 2, (0.1 + 0.2) * 10, 4, 5])
+        self.assertEqual(cached, forces)
+
     def tearDown(self):
         os.remove(self.cache_file)
 
