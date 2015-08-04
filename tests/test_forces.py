@@ -126,6 +126,15 @@ class TestTripletForceCache(unittest.TestCase):
         cached = self.subject.read([0, 0.7 + 0.2 + 0.1, 2, (0.1 + 0.2) * 10, 4, 5])
         self.assertEqual(cached, forces)
 
+    def test_read_with_xyz_symmetry(self):
+        forces = fs.TripletForces([0, 1, 2, 3, 4, 5], [1, 2, 3, 4, 5, 6])
+        self.subject.save_result(forces)
+
+        cached = self.subject.read([1, 0, 3, 2, 5, 4])
+        self.assertIsNotNone(cached)
+        self.assertEqual(cached.positions, [1, 0, 3, 2, 5, 4])
+        self.assertEqual(cached.forces, [2, 1, 4, 3, 6, 5])
+
     def tearDown(self):
         os.remove(self.cache_file)
 

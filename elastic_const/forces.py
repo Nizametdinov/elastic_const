@@ -26,6 +26,10 @@ PAIR_FORCE_CACHE_FILE = 'pair_forces.txt'
 PROCESS_TIMEOUT = 30 * 60  # seconds
 
 
+def flip(positions):
+    return [positions[i - (2 * (i % 2) - 1)] for i in range(len(positions))]
+
+
 class PairForce(namedtuple('PairForce', ['distance', 'force'])):
     def to_string(self):
         return format_float(self.distance) + ' ' + format_float(self.force)
@@ -70,7 +74,13 @@ class TripletForces(object):
         return self.positions == other.positions and self.forces == other.forces
 
     def have_coords(self, positions):
-        return np.allclose(self.positions, positions)
+        return np.allclose(self.positions, positions) or np.allclose(self.positions, flip(positions))
+
+    def change_positions(self, positions):
+        if np.allclose(self.positions, positions):
+            return self
+        if np.allclose(self.positions, flip(positions)):
+            return TripletForces(positions, flip(self.forces))
 
     def to_string(self):
         return ' '.join(
@@ -94,7 +104,7 @@ class TripletForceCache(CacheBase):
         return TripletForces.from_string(string)
 
     def read(self, positions):
-        return next((f for f in self.values if f.have_coords(positions)), None)
+        return next((f.change_positions(positions) for f in self.values if f.have_coords(positions)), None)
 
 
 class PairForceCache(CacheBase):
