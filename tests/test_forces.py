@@ -3,6 +3,7 @@ import unittest
 import tempfile
 import os
 import math
+import numpy as np
 import numpy.testing as np_test
 
 dirname = os.path.dirname(os.path.abspath(__file__))
@@ -90,50 +91,79 @@ class TestTripletForceCache(unittest.TestCase):
         self.subject = fs.TripletForceCache(None, cache_file=self.cache_file)
 
     def test_restore_cache(self):
+        normalized_force = fs.TripletForces(
+            [np.array([0.0, 0.0]), np.array([1.0, 0.1]), np.array([1.0, 0.0])],
+            [-0.1707, -0.01507, -1.9323, -0.53, 0.1, 0.2]
+        ).normalized()
         self.assertEqual(len(self.subject.values), 2)
-        self.assertEqual(
+        np_test.assert_equal(
             self.subject.values[0].positions,
-            [0.0, 0.0, 1.0, 0.1, 1.0, 0.0]
+            normalized_force.positions
         )
         self.assertEqual(
             self.subject.values[0].forces,
-            [-0.1707, -0.01507, -1.9323, -0.53, 0.1, 0.2]
+            normalized_force.forces
         )
-        self.assertEqual(self.subject.values[1].force(1, 'x'), -1.007e-1)
-        self.assertEqual(self.subject.values[1].force(3, 'y'), 0.2)
 
     def test_save_result(self):
-        forces = fs.TripletForces([0, 1, 2, 3, 4, 5], [1.1, 2, 3, 4, 5, 6.1])
-        self.subject.save_result(forces)
-        self.assertIn(forces, self.subject.values)
+        normalized_force = fs.TripletForces([0, 0, 1, 0, 1, 2], [1.1, 2, 3, 4, 5, 6.1])
+        self.subject.save_result(normalized_force)
+        self.assertIn(normalized_force, self.subject.values)
 
         with open(self.cache_file) as cache_file:
             lines = [line.strip() for line in cache_file if line.strip()]
             self.assertEqual(len(lines), 3)
-            self.assertEqual(fs.TripletForces.from_string(lines[-1]), forces)
+            self.assertEqual(fs.TripletForces.from_string(lines[-1]), normalized_force)
 
     def test_read(self):
         cached = self.subject.read([0.0, 0.0, 1.0, 0.1, 1.0, 0.0])
-        self.assertEqual(cached.positions, [0.0, 0.0, 1.0, 0.1, 1.0, 0.0])
+        np_test.assert_equal(cached.positions, [np.array([0.0, 0.0]), np.array([1.0, 0.1]), np.array([1.0, 0.0])])
         self.assertEqual(cached.forces, [-0.1707, -0.01507, -1.9323, -0.53, 0.1, 0.2])
 
-        forces = fs.TripletForces([0, 1, 2, 3, 4, 5], [1.1, 2, 3, 4, 5, 6.1])
+        forces = fs.TripletForces([1, 1, 2, 3, 4, 5], [1.1, 2, 3, 4, 5, 6.1])
         self.subject.save_result(forces)
-        cached = self.subject.read(forces.positions)
+        cached = self.subject.read([1, 1, 2, 3, 4, 5])
         self.assertEqual(cached, forces)
 
         # compares float with tolerance
-        cached = self.subject.read([0, 0.7 + 0.2 + 0.1, 2, (0.1 + 0.2) * 10, 4, 5])
+        cached = self.subject.read([1, 0.7 + 0.2 + 0.1, 2, (0.1 + 0.2) * 10, 4, 5])
         self.assertEqual(cached, forces)
 
-    def test_read_with_xyz_symmetry(self):
-        forces = fs.TripletForces([0, 1, 2, 3, 4, 5], [1, 2, 3, 4, 5, 6])
+    def test_read_with_xy_symmetry(self):
+        forces = fs.TripletForces([0, 0, 1, 2, 2, 0], [-1, -0.5, 0., 1., 1., -0.5])
         self.subject.save_result(forces)
 
-        cached = self.subject.read([1, 0, 3, 2, 5, 4])
+        cached = self.subject.read([0, 0, 2, 1, 0, 2])
         self.assertIsNotNone(cached)
-        self.assertEqual(cached.positions, [1, 0, 3, 2, 5, 4])
-        self.assertEqual(cached.forces, [2, 1, 4, 3, 6, 5])
+        np_test.assert_equal(cached.positions, [np.array([0, 0]), np.array([2, 1]), np.array([0, 2])])
+        self.assertEqual(cached.forces, [-0.5, -1, 1., 0., -0.5, 1.])
+
+    def test_read_with_shift(self):
+        forces = fs.TripletForces([0, 0, 4, 0, 4, 3], [1, 2, 3, 4, 5, 6])
+        self.subject.save_result(forces)
+
+        cached = self.subject.read([0, 0, 0, 3, -4, 0])
+        self.assertIsNotNone(cached)
+        np_test.assert_equal(cached.positions, [np.array([0, 0]), np.array([0, 3]), np.array([-4, 0])])
+        self.assertEqual(cached.forces, [3, 4, 5, 6, 1, 2])
+
+    def test_read_with_rotation(self):
+        forces = fs.TripletForces([0, 0, 4, 0, 4, 3], [1, 2, 3, 4, 5, 6])
+        self.subject.save_result(forces)
+
+        cached = self.subject.read([0, 0, 0, 4, -3, 4])
+        self.assertIsNotNone(cached)
+        np_test.assert_equal(cached.positions, [np.array([0, 0]), np.array([0, 4]), np.array([-3, 4])])
+        self.assertEqual(cached.forces, [-2, 1, -4, 3, -6, 5])
+
+    def test_read_with_rotation_and_mirror(self):
+        forces = fs.TripletForces([0, 0, 0, 1, -2, 1], [0.3, -1.2, 0.5, 1., -0.8, 0.2])
+        self.subject.save_result(forces)
+
+        cached = self.subject.read([0, 0, -1, 0, -1, 2])
+        self.assertIsNotNone(cached)
+        np_test.assert_equal(cached.positions, [np.array([0, 0]), np.array([-1, 0]), np.array([-1, 2])])
+        self.assertEqual(cached.forces, [1.2, -0.3, -1., -0.5, -0.2, 0.8])
 
     def tearDown(self):
         os.remove(self.cache_file)

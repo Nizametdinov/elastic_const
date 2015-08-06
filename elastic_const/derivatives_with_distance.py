@@ -1,4 +1,4 @@
-from elastic_const.misc import format_float, equal_vectors, EPSILON
+from elastic_const.misc import format_float, EPSILON
 from elastic_const.forces import PairFemSimulation, TripletFemSimulation
 from elastic_const.force_derivatives import ForceDerivativeComputation, PairForceDerivativeComputation
 from collections import namedtuple
@@ -33,7 +33,7 @@ class Potential3DistanceDerivatives(
         return self.__derivatives
 
     def have_distances(self, r1, r2, r3):
-        return equal_vectors(self.distances(), np.array(sorted([r1, r2, r3])))
+        return np.allclose(self.distances(), np.array(sorted([r1, r2, r3])))
 
     def to_string(self):
         return ' '.join(

@@ -2,7 +2,8 @@ from subprocess import Popen, PIPE, TimeoutExpired
 from os import path
 from elastic_const.cache_base import CacheBase
 from collections import namedtuple
-from elastic_const.misc import format_float, EPSILON
+from elastic_const.misc import format_float, pairwise_distances, pairs
+from elastic_const.triplet_forces import TripletForces
 import re
 import numpy as np
 
@@ -26,10 +27,6 @@ PAIR_FORCE_CACHE_FILE = 'pair_forces.txt'
 PROCESS_TIMEOUT = 30 * 60  # seconds
 
 
-def flip(positions):
-    return [positions[i - (2 * (i % 2) - 1)] for i in range(len(positions))]
-
-
 class PairForce(namedtuple('PairForce', ['distance', 'force'])):
     def to_string(self):
         return format_float(self.distance) + ' ' + format_float(self.force)
@@ -45,52 +42,10 @@ class PairForce(namedtuple('PairForce', ['distance', 'force'])):
         return self.distance == other.distance and self.force == other.force
 
     def rotate(self, to, origin):
-        assert abs((to[0] - origin[0]) ** 2 + (to[1] - origin[1]) ** 2 - self.distance ** 2) < EPSILON
+        assert np.allclose((to[0] - origin[0]) ** 2 + (to[1] - origin[1]) ** 2, self.distance ** 2)
         force_x = self.force * (to[0] - origin[0]) / self.distance
         force_y = self.force * (to[1] - origin[1]) / self.distance
         return force_x, force_y
-
-
-class TripletForces(object):
-    def __init__(self, positions, forces):
-        self.positions = list(positions)
-        self.forces = list(forces)
-
-    def force(self, particle_num, axis):
-        """
-        Returns force acting on particle with given number along given axis.
-        Parameters:
-        particle_num: 1, 2, 3
-        axis: 'x' or 'y'
-        """
-        variable_num = (particle_num - 1) * 2
-        if axis.lower() == 'y':
-            variable_num += 1
-        return self.forces[variable_num]
-
-    def __eq__(self, other):
-        if not isinstance(other, TripletForces):
-            return False
-        return self.positions == other.positions and self.forces == other.forces
-
-    def have_coords(self, positions):
-        return np.allclose(self.positions, positions) or np.allclose(self.positions, flip(positions))
-
-    def change_positions(self, positions):
-        if np.allclose(self.positions, positions):
-            return self
-        if np.allclose(self.positions, flip(positions)):
-            return TripletForces(positions, flip(self.forces))
-
-    def to_string(self):
-        return ' '.join(
-            map(format_float, self.positions + self.forces)
-        )
-
-    @classmethod
-    def from_string(cls, string):
-        parsed = list(map(float, string.split(' ')))
-        return cls(parsed[0:6], parsed[6:])
 
 
 class TripletForceCache(CacheBase):
@@ -101,10 +56,15 @@ class TripletForceCache(CacheBase):
         super().__init__(cache_file_path)
 
     def _value_from_string(self, string):
-        return TripletForces.from_string(string)
+        return TripletForces.from_string(string).normalized()
+
+    def save_result(self, value):
+        super().save_result(value.normalized())
 
     def read(self, positions):
-        return next((f.change_positions(positions) for f in self.values if f.have_coords(positions)), None)
+        points = [np.array([p1, p2]) for p1, p2 in pairs(positions)]
+        distances = sorted(pairwise_distances(points))
+        return next((f.change_positions(positions) for f in self.values if np.allclose(f.distances, distances)), None)
 
 
 class PairForceCache(CacheBase):
