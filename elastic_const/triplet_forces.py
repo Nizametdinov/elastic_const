@@ -51,7 +51,7 @@ class TripletForces(object):
         return np.array(self.positions).flatten()
 
     def have_coords(self, positions):
-        return np.allclose(self.flat_positions(), positions) or np.allclose(self.flat_positions(), flip(positions))
+        return np.allclose(self.flat_positions(), positions)
 
     def change_positions(self, positions):
         positions = [np.array([p1, p2]) for p1, p2 in pairs(positions)]
@@ -66,11 +66,6 @@ class TripletForces(object):
             forces[i] = force
         return TripletForces(positions, forces)
 
-    def to_string(self):
-        return ' '.join(
-            map(format_float, np.concatenate((self.flat_positions(), self.forces)))
-        )
-
     def normalized(self):
         force_vecs = list(pairs(self.forces))
         points = list(zip(self.positions, force_vecs))
@@ -84,6 +79,11 @@ class TripletForces(object):
         normalized_points = [transform.dot(p) for p in points]
         normalized_forces = [transform.dot(f) for f in ordered_forces]
         return TripletForces(normalized_points, normalized_forces)
+
+    def to_string(self):
+        return ' '.join(
+            map(format_float, np.concatenate((self.flat_positions(), self.forces)))
+        )
 
     @classmethod
     def from_string(cls, string):

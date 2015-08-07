@@ -1,4 +1,34 @@
 import math
+import numpy as np
+from elastic_const.misc import euclidean_distance
+
+
+class Pair(object):
+    def __init__(self, p1, p2, pair_fem, pair_fdc):
+        self.p1 = p1
+        self.p2 = p2
+        self.m = p1
+        self.pair_fem = pair_fem
+        self.pair_fdc = pair_fdc
+        self.r = euclidean_distance(p1, p2)
+        self.pair_force = None
+        self.pair_force_derivative = None
+
+    def f2(self, coord):
+        if not self.pair_force:
+            self.pair_force = self.pair_fem.compute_forces(self.r)
+        return self.pair_force.rotate(to=self.p1, origin=self.p2)[coord - 1]
+
+    def dF2(self, coord, dcoord):
+        if not self.pair_force_derivative:
+            self.pair_force_derivative = self.pair_fdc.derivative_of_force(self.r)
+        if coord == 1 and dcoord == 1:
+            num = 0
+        elif coord == 2 and dcoord == 2:
+            num = 2
+        else:
+            num = 1
+        return self.pair_force_derivative.rotate(to=self.p1, origin=self.p2)[num]
 
 
 class Configuration(object):
@@ -81,13 +111,14 @@ class Configuration(object):
         return {'m': ['ml', 'mn'], 'n': ['nl', 'nm']}[particle]
 
 
-def c_αβστ_m(conf, α, β, σ, τ):
-    force2_m_β = conf.f2('ml', β)
-    dF2_m_σ_dm_τ = conf.dF2('ml', σ, 'm', τ)
-    c = conf.m[α] * conf.m[β] * dF2_m_σ_dm_τ
+def c_αβστ_m(pair_conf, α, β, σ, τ):
+    dF2_m_σ_dm_τ = pair_conf.dF2(σ, τ)
+    c = pair_conf.m[α - 1] * pair_conf.m[β - 1] * dF2_m_σ_dm_τ
     if α == β:
-        c -= conf.m[α] * force2_m_β
+        force2_m_β = pair_conf.f2(β)
+        c -= pair_conf.m[α - 1] * force2_m_β
     return c
+
 
 def c_αβστ_mn(conf, α, β, σ, τ):
     dΔF_m_β_dm_τ = conf.dΔF('m', β, 'm', τ)
@@ -97,21 +128,22 @@ def c_αβστ_mn(conf, α, β, σ, τ):
     dΔF_n_β_dn_τ = conf.dΔF('n', β, 'n', τ)
     # check if dΔF_n_β_dm_τ == dΔF_m_β_dn_τ when β == τ
 
-    c  = conf.m[α] * conf.m[σ] * dΔF_m_β_dm_τ
-    c += conf.m[α] * conf.n[σ] * dΔF_m_β_dn_τ
-    c += conf.n[α] * conf.m[σ] * dΔF_n_β_dm_τ
-    c += conf.n[α] * conf.n[σ] * dΔF_n_β_dn_τ
+    c  = conf.m[α - 1] * conf.m[σ - 1] * dΔF_m_β_dm_τ
+    c += conf.m[α - 1] * conf.n[σ - 1] * dΔF_m_β_dn_τ
+    c += conf.n[α - 1] * conf.m[σ - 1] * dΔF_n_β_dm_τ
+    c += conf.n[α - 1] * conf.n[σ - 1] * dΔF_n_β_dn_τ
 
     if β == τ:
         ΔF_m_α = conf.ΔF('m', α)
         ΔF_n_α = conf.ΔF('n', α)
-        c -= conf.m[σ] * ΔF_m_α + conf.n[σ] * ΔF_n_α
+        c -= conf.m[σ - 1] * ΔF_m_α + conf.n[σ - 1] * ΔF_n_α
 
     return c
 
 
 def compute_constants(fem, pair_fem, fdc, pair_fdc):
     a = 3.0
+    v0 = a * a
 
     first_order = [[1, 0], [0, 1], [-1, 0], [0, -1]]
     second_order = [[1, 1], [-1, 1], [-1, -1], [1, -1]]
@@ -121,22 +153,22 @@ def compute_constants(fem, pair_fem, fdc, pair_fdc):
     c1212 = 0
 
     for i, m in enumerate(first_order):
-        m = [x * a for x in m]
+        m = a * np.array(m)
+        pair_conf = Pair(m, np.array([0, 0]), pair_fem, pair_fdc)
+        force2_m_x = pair_conf.f2(1)
+
+        c11 += m[0] * force2_m_x
+        c1111 += c_αβστ_m(pair_conf, 1, 1, 1, 1)
+        c1122 += c_αβστ_m(pair_conf, 1, 1, 2, 2)
+        c1212 += c_αβστ_m(pair_conf, 1, 2, 1, 2)
+
         for j, n in enumerate(first_order):
             if j <= i:
                 continue
-            n = [x * a for x in n]
+            n = a * np.array(n)
             print('m =', m, '; n =', n)
 
             conf = Configuration(m, n, fem, pair_fem, fdc, pair_fdc)
-
-            if j == i + 1:
-                force2_m_x = conf.f2('ml', 1)
-
-                c11 += m[0] * force2_m_x
-                c1111 += c_αβστ_m(conf, 1, 1, 1, 1)
-                c1122 += c_αβστ_m(conf, 1, 1, 2, 2)
-                c1212 += c_αβστ_m(conf, 1, 2, 1, 2)
 
             ΔF_m_x = conf.ΔF('m', 1)
             ΔF_n_x = conf.ΔF('n', 1)
@@ -147,4 +179,4 @@ def compute_constants(fem, pair_fem, fdc, pair_fdc):
             c1122 += c_αβστ_mn(conf, 1, 1, 2, 2)
             c1212 += c_αβστ_mn(conf, 1, 2, 1, 2)
 
-    return c11, c1111, c1122, c1212
+    return c11 / v0, c1111 / v0, c1122 / v0, c1212 / v0
