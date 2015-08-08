@@ -4,6 +4,7 @@ from elastic_const.cache_base import CacheBase
 from elastic_const.misc import format_float
 from collections import namedtuple
 import numpy as np
+import logging
 
 FINITE_DIFF_STEP = 0.01
 FINITE_DIFF_ORDER = 5
@@ -120,12 +121,12 @@ class ForceDerivativeComputation(object):
         def force_func(arg):
             var_positions[variable_num] = arg
             result = np.array(self.simulation.compute_forces(var_positions).forces)
-            print('positions =', var_positions, ', forces =', result)
+            logging.debug('positions = %s; forces = %s', var_positions, result)
             return result
 
         derivatives = derivative(force_func, positions[variable_num], dx=self.step, order=self.order)
         result = ForceDerivatives(axis, particle_num, positions, derivatives)
-        print(result)
+        logging.debug(result)
         self.cache.save_result(result)
         return result
 
