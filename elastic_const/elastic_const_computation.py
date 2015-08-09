@@ -1,20 +1,32 @@
 import math
 import numpy as np
 import logging
+import traceback
 from elastic_const.misc import euclidean_distance
 
 
 def compute_constants(fem, pair_fem, fdc, pair_fdc):
-    a = 3.0
-    v0 = a * a
+    try:
+        a = 3.0
+        v0 = a * a
 
-    first_order = a * np.array([[1, 0], [0, 1], [-1, 0], [0, -1]])
-    second_order = [[1, 1], [-1, 1], [-1, -1], [1, -1]]
-    c11, c1111, c1122, c1212 = _pair_constants(first_order, v0, pair_fdc, pair_fem)
+        first_order = [[1, 0], [0, 1], [-1, 0], [0, -1]]
+        second_order = [[1, 1], [-1, 1], [-1, -1], [1, -1]]
+        rest = [
+            [2, 0], [2, 1], [2, 2], [1, 2], [0, 2],
+            [-1, 2], [-2, 2], [-2, 1], [-2, 0],
+            [-2, -1], [-2, -2], [-1, -2], [0, -2],
+            [1, -2], [2, -2], [2, -1]
+        ]
+        particles = a * np.array(first_order + second_order + rest)
+        c11, c1111, c1122, c1212 = _pair_constants(particles, v0, pair_fdc, pair_fem)
 
-    tri_c11, tri_c1111, tri_c1122, tri_c1212 = _three_body_constants(first_order, v0, fem, pair_fem, fdc, pair_fdc)
+        tri_c11, tri_c1111, tri_c1122, tri_c1212 = _three_body_constants(particles, v0, fem, pair_fem, fdc, pair_fdc)
 
-    return (c11 + tri_c11) / v0, (c1111 + tri_c1111) / v0, (c1122 + tri_c1122) / v0, (c1212 + tri_c1212) / v0
+        return (c11 + tri_c11) / v0, (c1111 + tri_c1111) / v0, (c1122 + tri_c1122) / v0, (c1212 + tri_c1212) / v0
+    except:
+        logging.critical('elastic_const.compute_constants error %s', traceback.format_exc())
+        raise
 
 
 class Pair(object):
