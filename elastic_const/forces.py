@@ -6,6 +6,7 @@ from elastic_const.misc import format_float, pairwise_distances, pairs
 from elastic_const.triplet_forces import TripletForces
 import re
 import numpy as np
+import logging
 
 FILE_ENCODING = 'utf-16'
 PROC_ENCODING = 'cp866'
@@ -25,6 +26,16 @@ PAIR_CONFIG_FILE = 'pair_config.txt'
 FORCE_CACHE_FILE = 'triplet_forces.txt'
 PAIR_FORCE_CACHE_FILE = 'pair_forces.txt'
 PROCESS_TIMEOUT = 30 * 60  # seconds
+
+
+class ComputationError(Exception):
+    pass
+
+class PairFemError(ComputationError):
+    pass
+
+class TripletFemError(ComputationError):
+    pass
 
 
 class PairForce(namedtuple('PairForce', ['distance', 'force'])):
@@ -49,7 +60,7 @@ class PairForce(namedtuple('PairForce', ['distance', 'force'])):
 
 
 class TripletForceCache(CacheBase):
-    "This class stores computed forces in a system of three particles"
+    """This class stores computed forces in a system of three particles"""
 
     def __init__(self, working_dir, cache_file=None):
         cache_file_path = cache_file or path.join(working_dir, FORCE_CACHE_FILE)
@@ -68,7 +79,7 @@ class TripletForceCache(CacheBase):
 
 
 class PairForceCache(CacheBase):
-    "This class stores computed forces in a system of two particles"
+    """This class stores computed forces in a system of two particles"""
 
     def __init__(self, working_dir, cache_file=None):
         cache_file_path = cache_file or path.join(working_dir, PAIR_FORCE_CACHE_FILE)
@@ -82,11 +93,12 @@ class PairForceCache(CacheBase):
 
 
 class FemSimulation(object):
-    def __init__(self, command_line, working_dir, pattern, cache):
+    def __init__(self, command_line, working_dir, pattern, cache, error_class=ComputationError):
         self.cwd = working_dir
         self.command = command_line
         self.pattern = pattern
         self.cache = cache
+        self.error_class = error_class
 
     def _process_result(self, match, *args):
         raise NotImplementedError
@@ -97,6 +109,7 @@ class FemSimulation(object):
             stdout, stderr = proc.communicate(timeout=PROCESS_TIMEOUT)
         except TimeoutExpired:
             print('TIMEOUT')
+            logging.error('Execution of FEM simulation timed out')
             proc.kill()
             stdout, stderr = proc.communicate()
 
@@ -110,7 +123,7 @@ class FemSimulation(object):
         raise NotImplementedError
 
     def compute_forces(self, *args):
-        "Computes forces acting on particles within given configuration"
+        """Computes forces acting on particles within given configuration"""
         cached = self.cache.read(*args)
         if cached:
             return cached
@@ -118,7 +131,7 @@ class FemSimulation(object):
         self._create_config_file(*args)
         match = self.__execute()
         if not match:
-            return None
+            raise self.error_class('Line with result was not found in output. args: {}'.format(args))
 
         result = self._process_result(match, *args)
         self.cache.save_result(result)
@@ -130,7 +143,7 @@ class PairFemSimulation(FemSimulation):
         self.config_file = path.join(working_dir, PAIR_CONFIG_FILE)
         pattern = re.compile(PAIR_RESULT_PATTERN)
         cache = PairForceCache(working_dir)
-        super().__init__(command_line, working_dir, pattern, cache)
+        super().__init__(command_line, working_dir, pattern, cache, PairFemError)
 
     def _process_result(self, match, distance):
         return PairForce(distance, float(match.group('f')))
@@ -145,7 +158,7 @@ class TripletFemSimulation(FemSimulation):
         self.config_file = path.join(working_dir, TRIPLET_CONFIG_FILE)
         pattern = re.compile(RESULT_PATTERN)
         cache = TripletForceCache(working_dir)
-        super().__init__(command_line, working_dir, pattern, cache)
+        super().__init__(command_line, working_dir, pattern, cache, TripletFemError)
 
     def _process_result(self, match, positions):
         forces = [float(match.group(group)) for group in ['f1x', 'f1y', 'f2x', 'f2y', 'f3x', 'f3y']]
