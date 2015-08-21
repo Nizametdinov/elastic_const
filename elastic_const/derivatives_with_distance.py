@@ -71,6 +71,7 @@ class Potential3DistanceDerivativeCache(cache_base.CacheBase):
         return next((f for f in self.values if f.have_distances(*distances)), None)
 
 
+# TODO: fix sign of derivatives
 class PotentialDerivativesComputation(object):
     def __init__(self, pair_fem_command, triplet_fem_command, working_dir):
         self.pair_fem = PairFemSimulation(pair_fem_command, working_dir)
