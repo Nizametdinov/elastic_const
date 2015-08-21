@@ -75,7 +75,10 @@ class TripletForceCache(CacheBase):
     def read(self, positions):
         points = [np.array([p1, p2]) for p1, p2 in pairs(positions)]
         distances = sorted(pairwise_distances(points))
-        return next((f.change_positions(positions) for f in self.values if np.allclose(f.distances, distances)), None)
+        return next(
+            (f.change_positions(positions) for f in self.values if np.allclose(f.distances, distances, rtol=1.e-6)),
+            None
+        )
 
 
 class PairForceCache(CacheBase):
