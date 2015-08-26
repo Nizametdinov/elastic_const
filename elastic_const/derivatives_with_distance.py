@@ -1,7 +1,7 @@
 from elastic_const.misc import format_float, EPSILON, pairwise_distances, wage_product
 from elastic_const.forces import PairFemSimulation, TripletFemSimulation
 from elastic_const.force_derivatives import ForceDerivativeComputation, PairForceDerivativeComputation
-from elastic_const.elastic_const_computation import Configuration
+from elastic_const.triplet import Triplet
 from collections import namedtuple
 from os import path
 import elastic_const.cache_base as cache_base
@@ -143,7 +143,7 @@ class PotentialDerivativesComputation(object):
         x1, x2, x3 = 0., r12, r13
         m = np.array([x2, 0.])
         n = np.array([x3, 0.])
-        conf = Configuration(m, n, self.triplet_fem, self.pair_fem, self.triplet_derivative_computation,
+        conf = Triplet(m, n, self.triplet_fem, self.pair_fem, self.triplet_derivative_computation,
                              self.pair_derivative_computation)
         df3_dr23_2 = - conf.ΔF('m', x) / (4 * (x2 - x3))
         df3_dr12_2 = - conf.ΔF('m', x) / (4 * (x2 - x1))
