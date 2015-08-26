@@ -47,8 +47,7 @@ class TestTripletFemSimulation(unittest.TestCase):
         self.assertEqual(forces.force(1, 'y'), -0.01507202)
         self.assertEqual(forces.force(2, 'x'), -0.17909645)
         self.assertEqual(forces.force(2, 'y'), -1.93233496)
-        self.assertEqual(forces.force(3, 'x'), 0.34981181)
-        self.assertEqual(forces.force(3, 'y'), 1.94751238)
+        np_test.assert_equal(forces.force(3), np.array([0.34981181, 1.94751238]))
 
     def test_writes_to_config_file_positions_of_particles(self):
         forces = self.subject.compute_forces([0, 1, 2, 3, 4, 5])

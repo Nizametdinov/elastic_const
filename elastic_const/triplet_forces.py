@@ -27,14 +27,17 @@ class TripletForces(object):
         self.distances = sorted(pairwise_distances(self.positions))
 
 
-    def force(self, particle_num, axis):
+    def force(self, particle_num, axis=None):
         """
         Returns force acting on particle with given number along given axis.
+        If no axis is given returns force vector.
         Parameters:
         particle_num: 1, 2, 3
-        axis: 'x' or 'y'
+        axis: 'x', 'y' or None
         """
         variable_num = (particle_num - 1) * 2
+        if not axis:
+            return np.array(self.forces[variable_num:variable_num + 2])
         if axis.lower() == 'y':
             variable_num += 1
         return self.forces[variable_num]

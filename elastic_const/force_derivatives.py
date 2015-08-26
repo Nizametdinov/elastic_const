@@ -37,7 +37,7 @@ class ForceDerivatives(object):
                 self.positions == other.positions and np.all(self.derivatives == other.derivatives))
 
     def have_coords(self, axis, particle_num, positions):
-        return self.axis == axis and self.particle_num == particle_num and self.positions == positions
+        return self.axis == axis and self.particle_num == particle_num and np.allclose(self.positions, positions)
 
     def __repr__(self):
         return 'ForceDerivatives("{0}", {1}, {2}, {3})'.format(
