@@ -10,6 +10,9 @@ import math
 
 POTENTIAL_3_DERIVATIVE_CACHE_FILE = 'f3_derivatives_cache.txt'
 
+X = 1
+Y = 2
+
 
 class Potential2DistanceDerivative(object):
     def __init__(self, order, r, derivative):
@@ -68,7 +71,7 @@ class Potential3DistanceDerivativeCache(cache_base.CacheBase):
     def _value_from_string(self, string):
         return Potential3DistanceDerivatives.from_string(string)
 
-    def read(self, distances):
+    def read(self, *distances):
         return next((f for f in self.values if f.have_distances(*distances)), None)
 
 
@@ -76,11 +79,6 @@ class PotentialDerivativesComputation(object):
     def __init__(self, pair_fem_command, triplet_fem_command, working_dir):
         self.pair_fem = PairFemSimulation(pair_fem_command, working_dir)
         self.pair_derivative_computation = PairForceDerivativeComputation(self.pair_fem)
-
-        self.triplet_fem = TripletFemSimulation(triplet_fem_command, working_dir)
-        self.triplet_derivative_computation = ForceDerivativeComputation(working_dir, self.triplet_fem)
-
-        self.f3_derivative_cache = Potential3DistanceDerivativeCache('')
 
     def potential2_derivative(self, x, y):
         distance = math.sqrt(x * x + y * y)
@@ -97,26 +95,35 @@ class PotentialDerivativesComputation(object):
         result = Potential2DistanceDerivative(2, distance, derivative)
         return result
 
+
+class Potential3DerivativesComputation(object):
+    def __init__(self, pair_fem_command, triplet_fem_command, working_dir):
+        self.pair_fem = PairFemSimulation(pair_fem_command, working_dir)
+        self.pair_derivative_computation = PairForceDerivativeComputation(self.pair_fem)
+
+        self.triplet_fem = TripletFemSimulation(triplet_fem_command, working_dir)
+        self.triplet_derivative_computation = ForceDerivativeComputation(working_dir, self.triplet_fem)
+
+        self.f3_derivative_cache = Potential3DistanceDerivativeCache('')
+
     def potential3_derivative(self, positions):
         p1, p2, p3 = positions
-        distance12, distance23, distance13 = pairwise_distances(positions)
+        r12, r23, r13 = pairwise_distances(positions)
 
-        cached = self.f3_derivative_cache.read(distance12, distance13, distance23)
+        cached = self.f3_derivative_cache.read(r12, r13, r23)
         if cached:
-            return cached.renumber(distance12, distance13, distance23)
+            return cached.renumber(r12, r13, r23)
 
-        sorted_dist = sorted([distance12, distance23, distance13])
+        sorted_dist = sorted([r12, r23, r13])
         if np.allclose(sorted_dist[0] + sorted_dist[1], sorted_dist[2]):
-            return self.potential3_derivative_aligned(distance12, distance23, distance13)
+            return self.potential3_derivative_aligned(r12, r23, r13)
+        # p1 = np.array([0., 0.])
+        # p2 = np.array([r12, 0.])
+        # p3 = np.array([x3, 0.])
+        triplet = Triplet(p2, p3, self.triplet_fem, self.pair_fem, self.triplet_derivative_computation,
+                          self.pair_derivative_computation)
 
-        force2_12 = self.pair_fem.compute_forces(distance12).rotate(p2, origin=p1)
-        force2_13 = self.pair_fem.compute_forces(distance13).rotate(p3, origin=p1)
-
-        force2_23_0 = self.pair_fem.compute_forces(distance23)
-        force2_32 = force2_23_0.rotate(p2, origin=p3)
-
-        forces3 = self.triplet_fem.compute_forces(positions) # FIXME: wrong argument
-        delta_force3_2 = forces3.force(2) - force2_12 - force2_32
+        delta_force3_2 = np.array([triplet.ΔF('m', X), triplet.ΔF('m', Y)])
 
         delta = 2 * wage_product(p2 - p1, p2 - p3)
         assert abs(delta) > EPSILON
@@ -124,56 +131,94 @@ class PotentialDerivativesComputation(object):
         df3_dr12_2 = wage_product(p2 - p3, delta_force3_2) / delta
         df3_dr23_2 = wage_product(delta_force3_2, p2 - p1) / delta
 
-        force2_23 = force2_23_0.rotate(p3, origin=p2)
-
-        forces3 = self.triplet_fem.compute_forces(positions)
-        delta_force3_3 = forces3.force(3) - force2_13 - force2_23
+        delta_force3_3 = np.array([triplet.ΔF('n', X), triplet.ΔF('n', Y)])
 
         delta = 2 * wage_product(p3 - p1, p3 - p2)
         assert abs(delta) > EPSILON
 
         df3_dr13_2 = wage_product(p3 - p2, delta_force3_3) / delta
 
-        result = Potential3DistanceDerivatives(distance12, distance13, distance23,
+        result = Potential3DistanceDerivatives(r12, r13, r23,
                                                df3_dr12_2, df3_dr13_2, df3_dr23_2)
         return result
 
     def potential3_derivative_aligned(self, r12, r23, r13):
-        x = 1
         x1, x2, x3 = 0., r12, r13
         m = np.array([x2, 0.])
         n = np.array([x3, 0.])
         conf = Triplet(m, n, self.triplet_fem, self.pair_fem, self.triplet_derivative_computation,
                              self.pair_derivative_computation)
-        df3_dr23_2 = - conf.ΔF('m', x) / (4 * (x2 - x3))
-        df3_dr12_2 = - conf.ΔF('m', x) / (4 * (x2 - x1))
-        df3_dr13_2 = - conf.ΔF('n', x) / (4 * (x2 - x1))
+        df3_dr23_2 = - conf.ΔF('m', X) / (4 * (x2 - x3))
+        df3_dr12_2 = - conf.ΔF('m', X) / (4 * (x2 - x1))
+        df3_dr13_2 = - conf.ΔF('n', X) / (4 * (x3 - x1))
 
         result = Potential3DistanceDerivatives(r12, r13, r23, df3_dr12_2, df3_dr13_2, df3_dr23_2)
         return result
 
     def potential3_second_derivative(self, positions, first_derivatives):
-        x1, y1, x2, y2, x3, y3 = positions
-        delta = 64 * (x2 - x1) ** 3 * (y2 - y3) ** 3 - 64 * (x2 - x3) ** 3 * (y2 - y1) ** 3
-        delta += 192 * (x2 - x1) * (x2 - x3) ** 2 * (y2 - y1) ** 2 * (y2 - y3)
-        delta -= 192 * (x2 - x1) ** 2 * (x2 - x3) * (y2 - y1) * (y2 - y3) ** 2
+        p1, p2, p3 = positions
+        r12, r23, r13 = pairwise_distances(positions)
 
-        distance_12 = (x2 - x1) ** 2 + (y2 - y1) ** 2
-        distance_13 = (x3 - x1) ** 2 + (y3 - y1) ** 2
-        distance_23 = (x3 - x2) ** 2 + (y3 - y2) ** 2
+        # cached = self.f3_derivative_cache.read(r12, r13, r23)
+        # if cached:
+        #     return cached.renumber(r12, r13, r23)
 
-        dfull_force_dx2 = self.triplet_derivative_computation.derivative_of_forces('x', 2, positions)
-        dfull_force_dy2 = self.triplet_derivative_computation.derivative_of_forces('y', 2, positions)
+        sorted_dist = sorted([r12, r23, r13])
+        if np.allclose(sorted_dist[0] + sorted_dist[1], sorted_dist[2]):
+            return self.potential3_second_derivative_aligned(r12, r23, r13, first_derivatives)
 
-        dforce2_12_dr = self.pair_derivative_computation.derivative_of_force(distance_12)
-        dforce2_12_dx2, dforce2_12_dy2 = dforce2_12_dr.rotate(x2 - x1, y2 - y1)
-        dforce2_23_dr = self.pair_derivative_computation.derivative_of_force(distance_23)
-        dforce2_23_dx2, dforce2_23_dy2 = dforce2_12_dr.rotate(x2 - x3, y2 - y3)
-        b1 = dfull_force_dx2.derivatives[2] - dforce2_12_dx2 - dforce2_23_dx2
-        b1 -= 2 * first_derivatives.df3_dr12 + 2 * first_derivatives.df3_dr23
+        def make_matrix(vec1, vec2):
+            return -4 * np.array([
+                [vec1[0] * vec1[0], 2 * vec1[0] * vec2[0], vec2[0] * vec2[0]],
+                [vec1[0] * vec1[1], vec1[0] * vec2[1] + vec1[1] * vec2[0], vec2[0] * vec2[1]],
+                [vec1[1] * vec1[1], 2 * vec1[1] * vec2[1], vec2[1] * vec2[1]]
+            ])
 
-        # TODO: check force2 derivatives
-        b2 = dfull_force_dy2.derivatives[2] - dforce2_12_dy2 - dforce2_23_dy2
+        triplet = Triplet(p2, p3, self.triplet_fem, self.pair_fem, self.triplet_derivative_computation,
+                          self.pair_derivative_computation)
 
-        b3 = dfull_force_dy2.derivatives[3] - dforce2_12_dy2 - dforce2_23_dy2
-        b3 -= 2 * first_derivatives.df3_dr12 + 2 * first_derivatives.df3_dr23
+        a = make_matrix(p2 - p1, p2 - p3)
+        b = np.array([
+            triplet.dΔF('m', X, 'm', X) + 2 * first_derivatives.df3_dr12 + 2 * first_derivatives.df3_dr23,
+            triplet.dΔF('m', X, 'm', Y),
+            triplet.dΔF('m', Y, 'm', Y) + 2 * first_derivatives.df3_dr12 + 2 * first_derivatives.df3_dr23,
+        ])
+        d2f3_dr12r12, d2f3_dr12r23, d2f3_dr23r23 = solve3x3(a, b)
+
+        a = make_matrix(p3 - p1, p3 - p2)
+        b = np.array([
+            triplet.dΔF('n', X, 'n', X) + 2 * first_derivatives.df3_dr13 + 2 * first_derivatives.df3_dr23,
+            triplet.dΔF('n', X, 'n', Y),
+            triplet.dΔF('n', Y, 'n', Y) + 2 * first_derivatives.df3_dr13 + 2 * first_derivatives.df3_dr23,
+        ])
+        d2f3_dr13r13, d2f3_dr13r23, d2f3_dr23r23 = solve3x3(a, b)
+
+        return d2f3_dr12r12, d2f3_dr12r23, d2f3_dr13r13, d2f3_dr13r23, d2f3_dr23r23
+
+    def potential3_second_derivative_aligned(self, r12, r13, r23, first_derivatives):
+        x1, x2, x3 = 0., r12, r13
+        m = np.array([x2, 0.])
+        n = np.array([x3, 0.])
+        triplet = Triplet(m, n, self.triplet_fem, self.pair_fem, self.triplet_derivative_computation,
+                          self.pair_derivative_computation)
+        d2f3_dr23r23 = triplet.dΔF('m', X, 'm', X) + 2 * first_derivatives.df3_dr12 + 4 * first_derivatives.df3_dr23
+        d2f3_dr23r23 /= -16 * (x2 - x3) ** 2
+        d2f3_dr12r12 = d2f3_dr23r23 * r23 * r23 + first_derivatives.df3_dr23 / 2 - first_derivatives.df3_dr12
+        d2f3_dr12r12 /= r12 * r12
+        d2f3_dr12r23 = d2f3_dr23r23 * (x2 - x3) / (x2 - x1)
+        d2f3_dr13r13 = d2f3_dr23r23 * r23 * r23 + first_derivatives.df3_dr23 / 2 - first_derivatives.df3_dr13
+        d2f3_dr13r13 /= r13 * r13
+        d2f3_dr13r23 = d2f3_dr23r23 * (x3 - x2) / (x3 - x1)
+
+        return d2f3_dr12r12, d2f3_dr12r23, d2f3_dr13r13, d2f3_dr13r23, d2f3_dr23r23
+
+
+def solve3x3(a, b):
+    delta = np.linalg.det(a)
+    assert not np.allclose(delta, 0.)
+    solution = [0, 0, 0]
+    for i in range(3):
+        tmp = np.copy(a)
+        tmp[:, i] = b
+        solution[i] = np.linalg.det(tmp) / delta
+    return solution
