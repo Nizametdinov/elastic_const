@@ -36,6 +36,6 @@ def pairs(lst):
     return zip(it, it)
 
 
-def wage_product(v1, v2):
+def cross_product_2d(v1, v2):
     assert len(v1) == 2 and len(v2) == 2
     return v1[0] * v2[1] - v1[1] * v2[0]

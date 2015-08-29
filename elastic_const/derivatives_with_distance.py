@@ -1,4 +1,4 @@
-from elastic_const.misc import format_float, EPSILON, pairwise_distances, wage_product
+from elastic_const.misc import format_float, EPSILON, pairwise_distances, cross_product_2d
 from elastic_const.forces import PairFemSimulation, TripletFemSimulation
 from elastic_const.force_derivatives import ForceDerivativeComputation, PairForceDerivativeComputation
 from elastic_const.triplet import Triplet
@@ -125,18 +125,18 @@ class Potential3DerivativesComputation(object):
 
         delta_force3_2 = np.array([triplet.ΔF('m', X), triplet.ΔF('m', Y)])
 
-        delta = 2 * wage_product(p2 - p1, p2 - p3)
+        delta = 2 * cross_product_2d(p2 - p1, p2 - p3)
         assert abs(delta) > EPSILON
 
-        df3_dr12_2 = wage_product(p2 - p3, delta_force3_2) / delta
-        df3_dr23_2 = wage_product(delta_force3_2, p2 - p1) / delta
+        df3_dr12_2 = cross_product_2d(p2 - p3, delta_force3_2) / delta
+        df3_dr23_2 = cross_product_2d(delta_force3_2, p2 - p1) / delta
 
         delta_force3_3 = np.array([triplet.ΔF('n', X), triplet.ΔF('n', Y)])
 
-        delta = 2 * wage_product(p3 - p1, p3 - p2)
+        delta = 2 * cross_product_2d(p3 - p1, p3 - p2)
         assert abs(delta) > EPSILON
 
-        df3_dr13_2 = wage_product(p3 - p2, delta_force3_3) / delta
+        df3_dr13_2 = cross_product_2d(p3 - p2, delta_force3_3) / delta
 
         result = Potential3DistanceDerivatives(r12, r13, r23,
                                                df3_dr12_2, df3_dr13_2, df3_dr23_2)
