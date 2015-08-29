@@ -78,4 +78,4 @@ class Triplet(object):
         return {'l': 1, 'm': 2, 'n': 3}[particle]
 
     def _pairs_for(self, particle):
-        return {'m': ['ml', 'mn'], 'n': ['nl', 'nm']}[particle]
+        return {'l': ['lm', 'ln'], 'm': ['ml', 'mn'], 'n': ['nl', 'nm']}[particle]

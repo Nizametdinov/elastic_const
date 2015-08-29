@@ -143,7 +143,8 @@ class Potential3DerivativesComputation(object):
         return result
 
     def potential3_derivative_aligned(self, r12, r23, r13):
-        x1, x2, x3 = 0., r12, r13
+        x1, x2 = 0., r12
+        x3 = r13 if r13 > r23 else -r13
         m = np.array([x2, 0.])
         n = np.array([x3, 0.])
         conf = Triplet(m, n, self.triplet_fem, self.pair_fem, self.triplet_derivative_computation,
@@ -193,10 +194,18 @@ class Potential3DerivativesComputation(object):
         ])
         d2f3_dr13r13, d2f3_dr13r23, d2f3_dr23r23 = solve3x3(a, b)
 
-        return d2f3_dr12r12, d2f3_dr12r23, d2f3_dr13r13, d2f3_dr13r23, d2f3_dr23r23
+        x1, x2, x3 = p1[0], p2[0], p3[0]
+        d2f3_dr12r13 = triplet.dΔF('l', X, 'm', X) - 2 * first_derivatives.df3_dr12
+        d2f3_dr12r13 -= 4 * (x1 - x2)**2 * d2f3_dr12r12
+        d2f3_dr12r13 += 4 * (x1 - x2) * (x2 - x3) * d2f3_dr12r23
+        d2f3_dr12r13 += 4 * (x1 - x3) * (x2 - x3) * d2f3_dr13r23
+        d2f3_dr12r13 /= 4 * (x1 - x3) * (x2 - x1)
+
+        return d2f3_dr12r12, d2f3_dr12r23, d2f3_dr13r13, d2f3_dr13r23, d2f3_dr23r23, d2f3_dr12r13
 
     def potential3_second_derivative_aligned(self, r12, r13, r23, first_derivatives):
-        x1, x2, x3 = 0., r12, r13
+        x1, x2 = 0., r12
+        x3 = r13 if r13 > r23 else -r13
         m = np.array([x2, 0.])
         n = np.array([x3, 0.])
         triplet = Triplet(m, n, self.triplet_fem, self.pair_fem, self.triplet_derivative_computation,
@@ -210,7 +219,10 @@ class Potential3DerivativesComputation(object):
         d2f3_dr13r13 /= r13 * r13
         d2f3_dr13r23 = d2f3_dr23r23 * (x3 - x2) / (x3 - x1)
 
-        return d2f3_dr12r12, d2f3_dr12r23, d2f3_dr13r13, d2f3_dr13r23, d2f3_dr23r23
+        d2f3_dr12r13 = d2f3_dr23r23 * (x3 - x2)**2 + first_derivatives.df3_dr23 / 2
+        d2f3_dr12r13 /= - (x2 - x1) * (x3 - x1)
+
+        return d2f3_dr12r12, d2f3_dr12r23, d2f3_dr13r13, d2f3_dr13r23, d2f3_dr23r23, d2f3_dr12r13
 
 
 def solve3x3(a, b):
