@@ -16,9 +16,9 @@ class TestPotential3DistanceDerivatives(unittest.TestCase):
         self.assertEqual(renumbered.derivatives(), (2, 3, 1))
 
 
-class TestPotentialDerivativesComputation(unittest.TestCase):
+class TestPotential2DerivativesComputation(unittest.TestCase):
     def setUp(self):
-        self.subject = PotentialDerivativesComputation(None, None, '')
+        self.subject = Potential2DerivativesComputation(None, None)
 
     def test_potential2_derivative(self):
         pass
