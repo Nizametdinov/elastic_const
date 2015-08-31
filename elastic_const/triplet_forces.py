@@ -63,6 +63,11 @@ class TripletForces(object):
         indices = [i for i, _ in ordered]
         shifted_points = [p - ordered[0][1] for _, p in ordered]
         _, inverse_transform = normalization_transform(shifted_points)
+
+        denormalized_positions = [inverse_transform.dot(p) for p in self.positions]
+        assert np.allclose(shifted_points, denormalized_positions), \
+            '{0} != {1}'.format(shifted_points, denormalized_positions)
+
         denormalized_forces = [inverse_transform.dot(f) for f in pairs(self.forces)]
         forces = [None] * 3
         for i, force in zip(indices, denormalized_forces):
