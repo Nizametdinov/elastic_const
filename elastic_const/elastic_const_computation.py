@@ -29,7 +29,7 @@ def compute_constants(fem, pair_fem, fdc, pair_fdc):
         pairs = [[m, n] for i, m in enumerate(particles[:-1]) for n in particles[i + 1:]]
         tri_c11, tri_c1111, tri_c1122, tri_c1212 = _three_body_constants(pairs, v0, fem, pair_fem, fdc, pair_fdc)
 
-        return (c11 + tri_c11) / v0, (c1111 + tri_c1111) / v0, (c1122 + tri_c1122) / v0, (c1212 + tri_c1212) / v0
+        return c11 + tri_c11, c1111 + tri_c1111, c1122 + tri_c1122, c1212 + tri_c1212
     except:
         logging.critical('elastic_const.compute_constants error %s', traceback.format_exc())
         raise
@@ -66,12 +66,10 @@ def compute_constants_v2(fem, pair_fem, fdc, pair_fdc, a):
             particles = select_pairs(a, order)
             c11, c1111, c1122, c1212 = _pair_constants(particles, v0, pair_fdc, pair_fem)
             c11, c1111, c1122, c1212 = c11 / 2, c1111 / 2, c1122 / 2, c1212 / 2
-            c11, c1111, c1122, c1212 = c11 / v0, c1111 / v0, c1122 / v0, c1212 / v0
 
             pairs = select_triplets(a, order)
             tri_c11, tri_c1111, tri_c1122, tri_c1212 = _three_body_constants(pairs, v0, fem, pair_fem, fdc, pair_fdc)
             tri_c11, tri_c1111, tri_c1122, tri_c1212 = tri_c11 / 3, tri_c1111 / 3, tri_c1122 / 3, tri_c1212 / 3
-            tri_c11, tri_c1111, tri_c1122, tri_c1212 = tri_c11 / v0, tri_c1111 / v0, tri_c1122 / v0, tri_c1212 / v0
 
             logging.info(
                 'Pairs order={0} C11={1}, C1111={2}, C1122={3}, C1212={4}'.format(order + 1, c11, c1111, c1122, c1212)
@@ -87,19 +85,36 @@ def compute_constants_v2(fem, pair_fem, fdc, pair_fdc, a):
         raise
 
 
+def c_αβ_m(pair_conf, α, β):
+    force2_m_β = pair_conf.f2(β)
+    c = - pair_conf.m[α - 1] * force2_m_β
+    logging.debug('m = {m}; F2_m_{β} = {f2}; ΔC{α}{β} = {c}'.format(m=pair_conf.m, α=α, β=β, f2=force2_m_β, c=c))
+    return c
+
+
 def c_αβστ_m(pair_conf, α, β, σ, τ):
     dF2_m_σ_dm_τ = pair_conf.dF2(σ, τ)
     c = pair_conf.m[α - 1] * pair_conf.m[β - 1] * dF2_m_σ_dm_τ
-    logging.debug(
-        'm = {m}; dF2_m_{σ}_dm_{τ} = {dF}; ΔC{α}{β}{σ}{τ} = {c}'.format(m=pair_conf.m, α=α, β=β, σ=σ, τ=τ,
-                                                                        dF=dF2_m_σ_dm_τ, c=-c))
+    logging.debug('m = {m}; dF2_m_{σ}_dm_{τ} = {dF}; ΔC{α}{β}{σ}{τ} = {c}'
+                  .format(m=pair_conf.m, α=α, β=β, σ=σ, τ=τ, dF=dF2_m_σ_dm_τ, c=-c))
     if α == β:
         force2_m_β = pair_conf.f2(β)
         c -= pair_conf.m[α - 1] * force2_m_β
-        logging.debug(
-            'm = {m}; F2_m_{β} = {F}; ΔC{α}{β}{σ}{τ} = {c}'.format(m=pair_conf.m, α=α, β=β, σ=σ, τ=τ, F=force2_m_β,
-                                                                   c=-c))
+        logging.debug('m = {m}; F2_m_{β} = {F}; ΔC{α}{β}{σ}{τ} = {c}'
+                      .format(m=pair_conf.m, α=α, β=β, σ=σ, τ=τ, F=force2_m_β, c=-c))
     return -c
+
+
+def c_αβ_mn(conf, α, β):
+    ΔF_m_β = conf.ΔF('m', β)
+    ΔF_n_β = conf.ΔF('n', β)
+    c = - conf.m[α - 1] * ΔF_m_β - conf.n[α - 1] * ΔF_n_β
+    logging.debug(
+        'm = {m}, n = {n}; ΔF_m_{β} = {Fm}; ΔF_n_{β} = {Fn}; ΔC{α}{β} = {c}'.format(
+            m=conf.m, n=conf.n, α=α, β=β, Fm=ΔF_m_β, Fn=ΔF_n_β, c=c
+        )
+    )
+    return c
 
 
 def c_αβστ_mn(conf, α, β, σ, τ):
@@ -141,16 +156,14 @@ def _pair_constants(particles, v0, pair_fdc, pair_fem):
     c1212 = 0
     for m in particles:
         pair_conf = Pair(m, np.array([0, 0]), pair_fem, pair_fdc)
-        force2_m_x = pair_conf.f2(1)
-
-        c11 += m[0] * force2_m_x
+        c11 += c_αβ_m(pair_conf, 1, 1)
         c1111 += c_αβστ_m(pair_conf, 1, 1, 1, 1)
         c1122 += c_αβστ_m(pair_conf, 1, 1, 2, 2)
         c1212 += c_αβστ_m(pair_conf, 1, 2, 1, 2)
     logging.info(
         'Pair interaction C11={0}, C1111={1}, C1122={2}, C1212={3}'.format(c11 / v0, c1111 / v0, c1122 / v0, c1212 / v0)
     )
-    return c11, c1111, c1122, c1212
+    return c11 / v0, c1111 / v0, c1122 / v0, c1212 / v0
 
 
 def _three_body_constants(pairs, v0, fem, pair_fem, fdc, pair_fdc):
@@ -163,11 +176,7 @@ def _three_body_constants(pairs, v0, fem, pair_fem, fdc, pair_fdc):
 
         conf = Triplet(m, n, fem, pair_fem, fdc, pair_fdc)
 
-        ΔF_m_x = conf.ΔF('m', 1)
-        ΔF_n_x = conf.ΔF('n', 1)
-
-        tri_c11 += m[0] * ΔF_m_x + n[0] * ΔF_n_x
-
+        tri_c11 += c_αβ_mn(conf, 1, 1)
         tri_c1111 += c_αβστ_mn(conf, 1, 1, 1, 1)
         tri_c1122 += c_αβστ_mn(conf, 1, 1, 2, 2)
         tri_c1212 += c_αβστ_mn(conf, 1, 2, 1, 2)
@@ -178,4 +187,4 @@ def _three_body_constants(pairs, v0, fem, pair_fem, fdc, pair_fdc):
             tri_c11 / v0, tri_c1111 / v0, tri_c1122 / v0, tri_c1212 / v0
         )
     )
-    return tri_c11, tri_c1111, tri_c1122, tri_c1212
+    return tri_c11 / v0, tri_c1111 / v0, tri_c1122 / v0, tri_c1212 / v0
