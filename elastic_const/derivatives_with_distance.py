@@ -126,11 +126,11 @@ class Potential2DerivativesComputation(object):
         self.pair_derivative_computation = pair_fdc
 
     def first_derivative(self, distance):
-        force = self.pair_fem.compute_forces(distance)
+        force = self.pair_fem.compute_forces(distance).force
         return - force / (2 * distance)
 
     def second_derivative(self, distance, first_derivative):
-        force_derivative = self.pair_derivative_computation.derivative_of_force(distance)
+        force_derivative = self.pair_derivative_computation.derivative_of_force(distance).derivative
         return - (force_derivative + 2 * first_derivative) / (4 * distance**2)
 
 
