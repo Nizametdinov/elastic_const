@@ -11,6 +11,9 @@ def pair_constants(particles, v0, potential2_func):
     c1212 = 0
     for m in particles:
         f2 = potential2_func(np.linalg.norm(m))
+        logging.debug('r = {r}; df_2/dr^2 = {df2}; d^2f_2/d(r^2)^2 = {d2f2}'.format(
+            df2=f2.first_derivative(), d2f2=f2.second_derivative(), r=f2.r))
+
         c11 += c_αβ_m(f2, m, 1, 1) / v0
         c1111 += c_αβστ_m(f2, m, 1, 1, 1, 1) / v0
         c1122 += c_αβστ_m(f2, m, 1, 1, 2, 2) / v0
@@ -30,6 +33,10 @@ def three_body_constants(pairs, v0, potential3_func):
         print('m =', m, '; n =', n)
         r12, r23, r13 = pairwise_distances([np.array([0, 0]), m, n])
         f3 = potential3_func(r12, r23, r13)
+        logging.debug('m = {m}; n = {n}'.format(m=m, n=n))
+        logging.debug(f3.first_derivatives())
+        logging.debug(f3.second_derivatives())
+
         tri_c11 += c_αβ_mn(f3, m, n, 1, 1) / v0
         tri_c1111 += c_αβστ_mn(f3, m, n, 1, 1, 1, 1) / v0
         tri_c1122 += c_αβστ_mn(f3, m, n, 1, 1, 2, 2) / v0
@@ -68,4 +75,5 @@ def c_αβστ_mn(f3, m, n, α, β, σ, τ):
     c += 8 * x12[α - 1] * x12[β - 1] * x23[σ - 1] * x23[τ - 1] * d2f3.dr12r23
     c += 8 * x13[α - 1] * x13[β - 1] * x23[σ - 1] * x23[τ - 1] * d2f3.dr13r23
     c += 8 * x12[α - 1] * x12[β - 1] * x13[σ - 1] * x13[τ - 1] * d2f3.dr12r13
+    logging.debug('m = {m}; n = {n}; ΔC{α}{β}{σ}{τ} = {c}'.format(m=m, n=n, α=α, β=β, σ=σ, τ=τ, c=c))
     return c
