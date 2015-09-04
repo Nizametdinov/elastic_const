@@ -234,12 +234,11 @@ class Potential3DerivativesComputation(object):
         ])
         d2f3_dr13r13, d2f3_dr13r23, d2f3_dr23r23 = solve3x3(a, b)
 
-        x1, x2, x3 = p1[0], p2[0], p3[0]
-        d2f3_dr12r13 = triplet.dΔF('l', X, 'm', X) - 2 * df3.dr12
-        d2f3_dr12r13 -= 4 * (x1 - x2)**2 * d2f3_dr12r12
-        d2f3_dr12r13 += 4 * (x1 - x2) * (x2 - x3) * d2f3_dr12r23
-        d2f3_dr12r13 += 4 * (x1 - x3) * (x2 - x3) * d2f3_dr13r23
-        d2f3_dr12r13 /= 4 * (x1 - x3) * (x2 - x1)
+        d2f3_dr12r13 = triplet.dΔF('l', X, 'm', Y) - triplet.dΔF('l', Y, 'm', X)
+        d2f3_dr12r13 += 4 * cross_product_2d(p2 - p1, p1 - p2) * d2f3_dr12r12
+        d2f3_dr12r13 += 4 * cross_product_2d(p1 - p2, p2 - p3) * d2f3_dr12r23
+        d2f3_dr12r13 += 4 * cross_product_2d(p1 - p3, p2 - p3) * d2f3_dr13r23
+        d2f3_dr12r13 /= 4 * cross_product_2d(p1 - p3, p2 - p1)
 
         result = Potential3DistanceSecondDerivatives(
             r12, r23, r13, d2f3_dr12r12, d2f3_dr12r23, d2f3_dr13r13, d2f3_dr13r23, d2f3_dr23r23, d2f3_dr12r13
