@@ -238,7 +238,7 @@ class Potential3DerivativesComputation(object):
         d2f3_dr12r13 += 4 * cross_product_2d(p2 - p1, p1 - p2) * d2f3_dr12r12
         d2f3_dr12r13 += 4 * cross_product_2d(p1 - p2, p2 - p3) * d2f3_dr12r23
         d2f3_dr12r13 += 4 * cross_product_2d(p1 - p3, p2 - p3) * d2f3_dr13r23
-        d2f3_dr12r13 /= 4 * cross_product_2d(p1 - p3, p2 - p1)
+        d2f3_dr12r13 /= - 4 * cross_product_2d(p1 - p3, p2 - p1)
 
         result = Potential3DistanceSecondDerivatives(
             r12, r23, r13, d2f3_dr12r12, d2f3_dr12r23, d2f3_dr13r13, d2f3_dr13r23, d2f3_dr23r23, d2f3_dr12r13
