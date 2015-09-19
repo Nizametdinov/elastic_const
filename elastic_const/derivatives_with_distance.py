@@ -1,4 +1,4 @@
-from elastic_const.misc import format_float, EPSILON, pairwise_distances, cross_product_2d
+from elastic_const.misc import format_float, EPSILON, cross_product_2d
 from elastic_const.triplet import Triplet
 from collections import namedtuple
 from os import path
@@ -185,7 +185,7 @@ class Potential3DerivativesComputation(object):
 
     def first_derivatives_aligned(self, r12, r23, r13):
         x1, x2 = 0., r12
-        x3 = r13 if r13 > r23 else -r13
+        x3 = (r12**2 + r13**2 - r23**2) / (2 * r12)
         m = np.array([x2, 0.])
         n = np.array([x3, 0.])
         conf = Triplet(m, n, self.triplet_fem, self.pair_fem, self.triplet_derivative_computation,
@@ -248,7 +248,7 @@ class Potential3DerivativesComputation(object):
     def second_derivatives_aligned(self, r12, r13, r23, first_derivatives):
         df3 = first_derivatives
         x1, x2 = 0., r12
-        x3 = r13 if r13 > r23 else -r13
+        x3 = (r12**2 + r13**2 - r23**2) / (2 * r12)
         m = np.array([x2, 0.])
         n = np.array([x3, 0.])
         triplet = Triplet(m, n, self.triplet_fem, self.pair_fem, self.triplet_derivative_computation,
