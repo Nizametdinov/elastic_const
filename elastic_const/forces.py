@@ -7,6 +7,7 @@ from elastic_const.triplet_forces import TripletForces
 import re
 import numpy as np
 import logging
+import os
 
 FILE_ENCODING = 'utf-16'
 PROC_ENCODING = 'cp866'
@@ -62,7 +63,7 @@ class PairForce(namedtuple('PairForce', ['distance', 'force'])):
 class TripletForceCache(CacheBase):
     """This class stores computed forces in a system of three particles"""
 
-    def __init__(self, working_dir, cache_file=None):
+    def __init__(self, working_dir=None, cache_file=None):
         cache_file_path = cache_file or path.join(working_dir, FORCE_CACHE_FILE)
         super().__init__(cache_file_path)
 
@@ -84,7 +85,7 @@ class TripletForceCache(CacheBase):
 class PairForceCache(CacheBase):
     """This class stores computed forces in a system of two particles"""
 
-    def __init__(self, working_dir, cache_file=None):
+    def __init__(self, working_dir=None, cache_file=None):
         cache_file_path = cache_file or path.join(working_dir, PAIR_FORCE_CACHE_FILE)
         super().__init__(cache_file_path)
 
@@ -96,14 +97,21 @@ class PairForceCache(CacheBase):
 
 
 class FemSimulation(object):
-    def __init__(self, command_line, working_dir, pattern, cache, error_class=ComputationError):
+    def __init__(self, command_line, working_dir, pattern, cache, plan_file=None, error_class=ComputationError):
         self.cwd = working_dir
         self.command = command_line
         self.pattern = pattern
         self.cache = cache
         self.error_class = error_class
+        self.plan_file = plan_file
 
     def _process_result(self, match, *args):
+        raise NotImplementedError
+
+    def _dummy_result(self, *args):
+        raise NotImplementedError
+
+    def _format_args_for_plan(self, *args):
         raise NotImplementedError
 
     def __execute(self):
@@ -131,25 +139,39 @@ class FemSimulation(object):
         if cached:
             return cached
 
-        self._create_config_file(*args)
-        match = self.__execute()
-        if not match:
-            raise self.error_class('Line with result was not found in output. args: {}'.format(args))
+        if self.plan_file is not None:
+            print(self._format_args_for_plan(*args), file=self.plan_file)
+            result = self._dummy_result(*args)
+        else:
+            self._create_config_file(*args)
+            match = self.__execute()
+            if not match:
+                raise self.error_class('Line with result was not found in output. args: {}'.format(args))
 
-        result = self._process_result(match, *args)
+            result = self._process_result(match, *args)
+
         self.cache.save_result(result)
         return result
 
 
 class PairFemSimulation(FemSimulation):
-    def __init__(self, command_line, working_dir):
+    def __init__(self, command_line, working_dir, plan_file=None):
         self.config_file = path.join(working_dir, PAIR_CONFIG_FILE)
         pattern = re.compile(PAIR_RESULT_PATTERN)
-        cache = PairForceCache(working_dir)
-        super().__init__(command_line, working_dir, pattern, cache, PairFemError)
+        if plan_file is None:
+            cache = PairForceCache(working_dir)
+        else:
+            cache = PairForceCache(cache_file=os.devnull)
+        super().__init__(command_line, working_dir, pattern, cache, plan_file, PairFemError)
 
     def _process_result(self, match, distance):
         return PairForce(distance, float(match.group('f')))
+
+    def _dummy_result(self, distance):
+        return PairForce(distance, 0.)
+
+    def _format_args_for_plan(self, distance):
+        return str(distance)
 
     def _create_config_file(self, distance):
         with open(self.config_file, 'w', encoding=FILE_ENCODING) as conf_file:
@@ -157,15 +179,24 @@ class PairFemSimulation(FemSimulation):
 
 
 class TripletFemSimulation(FemSimulation):
-    def __init__(self, command_line, working_dir):
+    def __init__(self, command_line, working_dir, plan_file=None):
         self.config_file = path.join(working_dir, TRIPLET_CONFIG_FILE)
         pattern = re.compile(RESULT_PATTERN)
-        cache = TripletForceCache(working_dir)
-        super().__init__(command_line, working_dir, pattern, cache, TripletFemError)
+        if plan_file is None:
+            cache = TripletForceCache(working_dir)
+        else:
+            cache = TripletForceCache(cache_file=os.devnull)
+        super().__init__(command_line, working_dir, pattern, cache, plan_file, TripletFemError)
 
     def _process_result(self, match, positions):
         forces = [float(match.group(group)) for group in ['f1x', 'f1y', 'f2x', 'f2y', 'f3x', 'f3y']]
         return TripletForces(positions, forces)
+
+    def _dummy_result(self, positions):
+        return TripletForces(positions, [0.] * 6)
+
+    def _format_args_for_plan(self, positions):
+        return ' '.join(map(str, positions))
 
     def _create_config_file(self, positions):
         with open(self.config_file, 'w', encoding=FILE_ENCODING) as conf_file:

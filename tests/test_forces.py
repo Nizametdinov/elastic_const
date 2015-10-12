@@ -5,6 +5,7 @@ import os
 import math
 import numpy as np
 import numpy.testing as np_test
+import io
 
 dirname = os.path.dirname(os.path.abspath(__file__))
 
@@ -51,7 +52,6 @@ class TestTripletFemSimulation(unittest.TestCase):
 
     def test_writes_to_config_file_positions_of_particles(self):
         forces = self.subject.compute_forces([0, 1, 2, 3, 4, 5])
-        conf = None
         with open(self.config_file, encoding=fs.FILE_ENCODING) as conf_file:
             conf = list(map(str.strip, conf_file.readlines()))
         self.assertEqual(len(conf), 6)
@@ -73,6 +73,27 @@ class TestTripletFemSimulation(unittest.TestCase):
 
         computed = self.subject.compute_forces([0, 1, 2, 3, 4, 5])
         self.assertEqual(cached, computed)
+
+    def test_plan_generation(self):
+        plan_file = io.StringIO()
+        self.subject = fs.TripletFemSimulation(self.subject.command, dirname, plan_file=plan_file)
+
+        # It returns zeroes
+        forces = self.subject.compute_forces([0., 1., 2., 3., 4., 5.])
+        np_test.assert_equal(forces.force(1), np.array([0., 0.]))
+        np_test.assert_equal(forces.force(2), np.array([0., 0.]))
+        np_test.assert_equal(forces.force(3), np.array([0., 0.]))
+
+        # It generates computation plan
+        self.subject.compute_forces([0., 0., 1., 1., 2., 2.])
+        plan = plan_file.getvalue().splitlines()
+        self.assertEqual(list(map(float, plan[0].split())), [0., 1., 2., 3., 4., 5.])
+        self.assertEqual(list(map(float, plan[1].split())), [0., 0., 1., 1., 2., 2.])
+
+        # It does not output the same configuration twice
+        self.subject.compute_forces([0., 0., 1., 1., 2., 2.])
+        plan = plan_file.getvalue().splitlines()
+        self.assertEqual(len(plan), 2)
 
     def tearDown(self):
         os.remove(self.config_file)
@@ -210,6 +231,26 @@ class TestPairFemSimulation(unittest.TestCase):
 
         computed = self.subject.compute_forces(3)
         self.assertEqual(cached, computed)
+
+    def test_plan_generation(self):
+        plan_file = io.StringIO()
+        self.subject = fs.PairFemSimulation(self.subject.command, dirname, plan_file=plan_file)
+
+        # It returns zeroes
+        force = self.subject.compute_forces(3)
+        self.assertEqual(force.force, 0.)
+        self.assertEqual(force.distance, 3.)
+
+        # It generates computation plan
+        self.subject.compute_forces(2.5)
+        plan = plan_file.getvalue().splitlines()
+        self.assertEqual(float(plan[0]), 3.)
+        self.assertEqual(float(plan[1]), 2.5)
+
+        # It does not output the same configuration twice
+        self.subject.compute_forces(2.5)
+        plan = plan_file.getvalue().splitlines()
+        self.assertEqual(len(plan), 2)
 
     def tearDown(self):
         os.remove(self.config_file)
