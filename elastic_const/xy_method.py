@@ -69,7 +69,7 @@ def c_αβστ_mn(conf, α, β, σ, τ):
     return -c
 
 
-def pair_constants(particles, v0, pair_fdc, pair_fem):
+def pair_constants(particles, v0, pair_fem, pair_fdc):
     c11 = 0
     c1111 = 0
     c1122 = 0

@@ -11,6 +11,32 @@ from elastic_const import r_method
 from elastic_const.derivatives_with_distance import Potential2, Potential3
 
 
+def compute_constants_xy_method(a, max_order, triplet_fem, pair_fem, triplet_fdc, pair_fdc):
+    def pair_const_func(particles, v0):
+        return xy_method.pair_constants(particles, v0, pair_fem, pair_fdc)
+
+    def triplet_const_func(pairs, v0):
+        return xy_method.three_body_constants(pairs, v0, triplet_fem, pair_fem, triplet_fdc, pair_fdc)
+
+    return compute_constants_v2(a, max_order, pair_const_func, triplet_const_func)
+
+
+def compute_constants_r_method(a, max_order, f2dc, f3dc):
+    def potential2(r):
+        return Potential2(f2dc, r)
+
+    def potential3(r12, r23, r13):
+        return Potential3(f3dc, r12, r23, r13)
+
+    def pair_const_func(particles, v0):
+        return r_method.pair_constants(particles, v0, potential2)
+
+    def triplet_const_func(pairs, v0):
+        return r_method.three_body_constants(pairs, v0, potential3)
+
+    return compute_constants_v2(a, max_order, pair_const_func, triplet_const_func)
+
+
 def compute_constants_v2(a, max_order, pair_const_func, triplet_const_func):
     """
     Incremental computation of elastic constants for 2d crystal with simple quadratic lattice
@@ -59,31 +85,3 @@ def compute_constants_v2(a, max_order, pair_const_func, triplet_const_func):
     except:
         logging.critical('elastic_const.compute_constants error %s', traceback.format_exc())
         raise
-
-
-def compute_constants_xy_method(a, max_order, triplet_fem, pair_fem, triplet_fdc, pair_fdc):
-    def pair_const_func(particles, v0):
-        return xy_method.pair_constants(particles, v0, pair_fem, pair_fdc)
-
-    def triplet_const_func(pairs, v0):
-        return xy_method.three_body_constants(pairs, v0, triplet_fem, pair_fem, triplet_fdc, pair_fdc)
-
-    return compute_constants_v2(a, max_order, pair_const_func, triplet_const_func)
-
-
-def compute_constants_r_method(a, max_order, f2dc, f3dc):
-    def potential2(r):
-        return Potential2(f2dc, r)
-
-    def potential3(r12, r23, r13):
-        return Potential3(f3dc, r12, r23, r13)
-
-    def pair_const_func(particles, v0):
-        return r_method.pair_constants(particles, v0, potential2)
-
-    def triplet_const_func(pairs, v0):
-        return r_method.three_body_constants(pairs, v0, potential3)
-
-    return compute_constants_v2(a, max_order, pair_const_func, triplet_const_func)
-
-
