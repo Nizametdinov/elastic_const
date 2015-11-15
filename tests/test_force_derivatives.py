@@ -67,18 +67,18 @@ class TestForceDerivativeComputation(unittest.TestCase):
         self.subject.cache.cache_file_path = os.devnull
 
         def forces(positions):
-            if positions == [0., 0., 4., 0., 2., 1.]:
+            if positions == [0., 0., 4., 0., 2., 3.]:
                 return fs.TripletForces(positions, [-8.347, -3.884, 8.347, -3.884, 0., 7.769])
-            if positions == [0., 0., 4., -0.01, 2., 1.]:
+            if positions == [0., 0., 4., -0.01, 2., 3.]:
                 return fs.TripletForces(positions, [-8.347, -3.884, 8.347, -3.784, 0., 7.769])
-            if positions == [0., 0., 4., 0.01, 2., 1.]:
+            if positions == [0., 0., 4., 0.01, 2., 3.]:
                 return fs.TripletForces(positions, [-8.347, -3.884, 8.347, -3.984, 0., 7.769])
             raise ValueError('Unexpected value of positions: {0}'.format(positions))
 
         mock_config = {'compute_forces.side_effect': forces}
         self.subject.simulation.configure_mock(**mock_config)
 
-        self.positions = [0., 0., 4., 0., 2., 1.]
+        self.positions = [0., 0., 4., 0., 2., 3.]
 
     def test_computes_derivative_of_forces(self):
         dF_dy2 = self.subject.derivative_of_forces('Y', 2, self.positions)
@@ -102,6 +102,12 @@ class TestForceDerivativeComputation(unittest.TestCase):
 
         computed = self.subject.derivative_of_forces('y', 2, self.positions)
         self.assertEqual(cached, computed)
+
+    def test_uses_smaller_step_for_small_dist(self):
+        self.subject.derivative_func = Mock(return_value=np.array([0, 0, 0, 0, 0, 0]))
+
+        self.subject.derivative_of_forces('x', 2, [0, 0, 2.5, 0, 3, 3])
+        self.subject.derivative_func.assert_called_with(ANY, 2.5, dx=(2.5 - 2) * 0.01, order=3)
 
 
 class TestPairForceDerivativeComputation(unittest.TestCase):

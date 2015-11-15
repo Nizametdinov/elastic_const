@@ -1,7 +1,7 @@
 from scipy.misc import derivative
 from os import path
 from elastic_const.cache_base import CacheBase
-from elastic_const.misc import format_float
+from elastic_const.misc import format_float, euclidean_distance, pairs
 from collections import namedtuple
 import numpy as np
 import logging
@@ -94,11 +94,14 @@ class ForceDerivativeCache(CacheBase):
 
 
 class ForceDerivativeComputation(object):
-    def __init__(self, working_dir, simulation, order=FINITE_DIFF_ORDER, step=FINITE_DIFF_STEP):
+    def __init__(self, working_dir, simulation, order=FINITE_DIFF_ORDER, step=FINITE_DIFF_STEP, r=1.,
+                 derivative_func=derivative):
         self.simulation = simulation
         self.order = order
         self.step = step
         self.cache = ForceDerivativeCache(working_dir)
+        self.r = r
+        self.derivative_func = derivative_func
 
     def derivative_of_forces(self, axis, particle_num, positions):
         """
@@ -124,11 +127,22 @@ class ForceDerivativeComputation(object):
             logging.debug('positions = %s; forces = %s', var_positions, result)
             return result
 
-        derivatives = derivative(force_func, positions[variable_num], dx=self.step, order=self.order)
+        derivatives = self.derivative_func(
+            force_func, positions[variable_num], dx=self.__get_step(positions, particle_num), order=self.order
+        )
         result = ForceDerivatives(axis, particle_num, positions, derivatives)
         logging.debug(result)
         self.cache.save_result(result)
         return result
+
+    def __get_step(self, positions, num):
+        num -= 1
+        positions = [np.array([p1, p2]) for p1, p2 in pairs(positions)]
+        p = positions[num]
+        min_dist = min(euclidean_distance(p, other) for i, other in enumerate(positions) if i != num)
+        if min_dist - 2 * self.r < 1.0:
+            return self.step * (min_dist - 2 * self.r)
+        return self.step
 
 
 class PairForceDerivativeComputation(object):
