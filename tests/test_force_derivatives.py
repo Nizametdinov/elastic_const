@@ -4,7 +4,7 @@ import unittest
 import tempfile
 import os
 import numpy as np
-from unittest.mock import Mock
+from unittest.mock import Mock, ANY
 
 
 class TestForceDerivativeCache(unittest.TestCase):
@@ -107,8 +107,9 @@ class TestForceDerivativeComputation(unittest.TestCase):
 class TestPairForceDerivativeComputation(unittest.TestCase):
     def setUp(self):
         simulation = Mock()
-        self.subject = fd.PairForceDerivativeComputation(simulation, order=3)
+        self.subject = fd.PairForceDerivativeComputation(simulation, order=3, r=1.)
 
+    def test_computes_derivative_of_force(self):
         def forces(distance):
             if distance == 3.:
                 return fs.PairForce(distance, 0.865)
@@ -121,9 +122,16 @@ class TestPairForceDerivativeComputation(unittest.TestCase):
         mock_config = {'compute_forces.side_effect': forces}
         self.subject.simulation.configure_mock(**mock_config)
 
-    def test_computes_derivative_of_force(self):
         dF_dr = self.subject.derivative_of_force(3.)
         self.assertEqual(round(dF_dr.derivative), -1.)
+
+    def test_uses_smaller_step_for_small_dist(self):
+        mock_config = {'compute_forces.return_value': fs.PairForce(0., 0.)}
+        self.subject.simulation.configure_mock(**mock_config)
+        self.subject.derivative_func = Mock(return_value=0)
+
+        self.subject.derivative_of_force(2.5)
+        self.subject.derivative_func.assert_called_with(ANY, 2.5, dx=(2.5-2)*0.01, order=3)
 
 
 class TestForceDerivatives(unittest.TestCase):

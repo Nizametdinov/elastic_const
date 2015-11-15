@@ -132,16 +132,19 @@ class ForceDerivativeComputation(object):
 
 
 class PairForceDerivativeComputation(object):
-    def __init__(self, simulation, order=FINITE_DIFF_ORDER, step=FINITE_DIFF_STEP):
+    def __init__(self, simulation, order=FINITE_DIFF_ORDER, step=FINITE_DIFF_STEP, r=1., derivative_func=derivative):
         self.simulation = simulation
         self.order = order
         self.step = step
+        self.r = r
+        self.derivative_func = derivative_func
 
     def derivative_of_force(self, distance):
         def force_func(arg):
             return self.simulation.compute_forces(arg).force
 
         force = self.simulation.compute_forces(distance).force
-        dF_dr = derivative(force_func, distance, dx=self.step, order=self.order)
+        step = self.step * (distance - 2 * self.r) if distance - 2 * self.r < 1.0 else self.step
+        dF_dr = self.derivative_func(force_func, distance, dx=step, order=self.order)
         result = PairForceDerivative(distance, dF_dr, force)
         return result
