@@ -1,5 +1,6 @@
 import unittest
 import os
+import sys
 import numpy as np
 import numpy.testing as np_test
 import elastic_const.force_derivatives as fd
@@ -12,7 +13,7 @@ dirname = os.path.dirname(os.path.abspath(__file__))
 
 class IntegrationTest(unittest.TestCase):
     def setUp(self):
-        # TODO: hide stdout output and warnings
+        # TODO: hide warnings
         fs.FORCE_CACHE_FILE = 'triplet_forces_3.1.txt'
         fd.DERIVATIVE_CACHE_FILE = 'computed_force_derivatives_3.1.txt'
         working_dir = os.path.join(dirname, 'test_data')
@@ -25,6 +26,9 @@ class IntegrationTest(unittest.TestCase):
         self.triplet_fem.cache.save_result = Mock()
         self.triplet_fdc.cache.save_result = Mock()
 
+        self.stdout = sys.stdout
+        sys.stdout = open(os.devnull,'w')
+
     def test_integration(self):
         c11, c1111, c1122, c1212 = \
             compute_constants_xy_method(3.1, 5, self.triplet_fem, self.pair_fem, self.triplet_fdc, self.pair_fdc)
@@ -35,6 +39,9 @@ class IntegrationTest(unittest.TestCase):
         self.pair_fem.cache.save_result.assert_not_called()
         self.triplet_fem.cache.save_result.assert_not_called()
         self.triplet_fdc.cache.save_result.assert_not_called()
+
+    def tearDown(self):
+        sys.stdout = self.stdout
 
 
 if __name__ == "__main__":
