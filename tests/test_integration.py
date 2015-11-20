@@ -20,7 +20,7 @@ class IntegrationTest(unittest.TestCase):
         self.pair_fem = fs.PairFemSimulation([], working_dir)
         self.triplet_fem = fs.TripletFemSimulation([], working_dir)
         self.pair_fdc = fd.PairForceDerivativeComputation(self.pair_fem, order=11)
-        self.triplet_fdc = fd.ForceDerivativeComputation(working_dir, self.triplet_fem)
+        self.triplet_fdc = fd.TripletForceDerivativeComputation(working_dir, self.triplet_fem)
 
         self.pair_fem.cache.save_result = Mock()
         self.triplet_fem.cache.save_result = Mock()

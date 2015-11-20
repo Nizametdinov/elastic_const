@@ -11,7 +11,7 @@ FINITE_DIFF_ORDER = 5
 DERIVATIVE_CACHE_FILE = 'computed_force_derivatives.txt'
 
 
-class ForceDerivatives(object):
+class TripletForceDerivatives(object):
     def __init__(self, axis, particle_num, positions, derivatives):
         self.positions = list(positions)
         self.particle_num = particle_num
@@ -31,7 +31,7 @@ class ForceDerivatives(object):
         return self.derivatives[variable_num]
 
     def __eq__(self, other):
-        if not isinstance(other, ForceDerivatives):
+        if not isinstance(other, TripletForceDerivatives):
             return False
         return (self.axis == other.axis and self.particle_num == other.particle_num and
                 self.positions == other.positions and np.all(self.derivatives == other.derivatives))
@@ -75,7 +75,7 @@ class PairForceDerivative(namedtuple('PairForceDerivative', ['distance', 'deriva
         return dFx_dx, dFx_dy, dFy_dy
 
 
-class ForceDerivativeCache(CacheBase):
+class TripletForceDerivativeCache(CacheBase):
     "This class stores computed force derivatives"
 
     def __init__(self, working_dir, cache_file=None):
@@ -83,7 +83,7 @@ class ForceDerivativeCache(CacheBase):
         super().__init__(cache_file_path)
 
     def _value_from_string(self, string):
-        return ForceDerivatives.from_string(string)
+        return TripletForceDerivatives.from_string(string)
 
     def read(self, axis, particle_num, positions):
         axis = axis.lower()
@@ -93,13 +93,13 @@ class ForceDerivativeCache(CacheBase):
         )
 
 
-class ForceDerivativeComputation(object):
+class TripletForceDerivativeComputation(object):
     def __init__(self, working_dir, simulation, order=FINITE_DIFF_ORDER, step=FINITE_DIFF_STEP, r=1.,
                  derivative_func=derivative):
         self.simulation = simulation
         self.order = order
         self.step = step
-        self.cache = ForceDerivativeCache(working_dir)
+        self.cache = TripletForceDerivativeCache(working_dir)
         self.r = r
         self.derivative_func = derivative_func
 
@@ -130,7 +130,7 @@ class ForceDerivativeComputation(object):
         derivatives = self.derivative_func(
             force_func, positions[variable_num], dx=self.__get_step(positions, particle_num), order=self.order
         )
-        result = ForceDerivatives(axis, particle_num, positions, derivatives)
+        result = TripletForceDerivatives(axis, particle_num, positions, derivatives)
         logging.debug(result)
         self.cache.save_result(result)
         return result

@@ -17,7 +17,7 @@ class TestForceDerivativeCache(unittest.TestCase):
         """
         with open(f, 'w') as cache_file:
             cache_file.write(test_data)
-        self.subject = fd.ForceDerivativeCache(None, cache_file=self.cache_file)
+        self.subject = fd.TripletForceDerivativeCache(None, cache_file=self.cache_file)
 
     def test_restore_cache(self):
         self.assertEqual(len(self.subject.values), 3)
@@ -34,14 +34,14 @@ class TestForceDerivativeCache(unittest.TestCase):
         self.assertEqual(self.subject.values[2].axis, 'y')
 
     def test_save_result(self):
-        derivatives = fd.ForceDerivatives('x', 3, [0, 1, 2, 3, 4, 5], [1.1, 2, 3, 4, 5, 6.1])
+        derivatives = fd.TripletForceDerivatives('x', 3, [0, 1, 2, 3, 4, 5], [1.1, 2, 3, 4, 5, 6.1])
         self.subject.save_result(derivatives)
         self.assertIn(derivatives, self.subject.values)
 
         with open(self.cache_file) as cache_file:
             lines = [line.strip() for line in cache_file if line.strip()]
             self.assertEqual(len(lines), 4)
-            self.assertEqual(fd.ForceDerivatives.from_string(lines[-1]), derivatives)
+            self.assertEqual(fd.TripletForceDerivatives.from_string(lines[-1]), derivatives)
 
     def test_read(self):
         cached = self.subject.read('y', 1, [0.0, 0.0, 1.0, 0.1, 1.0, 0.0])
@@ -50,7 +50,7 @@ class TestForceDerivativeCache(unittest.TestCase):
         self.assertEqual(cached.positions, [0.0, 0.0, 1.0, 0.1, 1.0, 0.0])
         self.assertEqual(cached.derivatives, [-1.032e-2, -0.1112, -1.232, -0.33, 0.1, 0.2])
 
-        derivatives = fd.ForceDerivatives('x', 2, [0, 1, 2, 3, 4, 5], [1.1, 2, 3, 4, 5, 6.1])
+        derivatives = fd.TripletForceDerivatives('x', 2, [0, 1, 2, 3, 4, 5], [1.1, 2, 3, 4, 5, 6.1])
         self.subject.save_result(derivatives)
         cached = self.subject.read('x', 2, derivatives.positions)
         self.assertEqual(cached, derivatives)
@@ -63,7 +63,7 @@ class TestForceDerivativeComputation(unittest.TestCase):
     def setUp(self):
         dirname = os.path.dirname(os.path.abspath(__file__))
         simulation = Mock()
-        self.subject = fd.ForceDerivativeComputation(dirname, simulation, order=3)
+        self.subject = fd.TripletForceDerivativeComputation(dirname, simulation, order=3)
         self.subject.cache.cache_file_path = os.devnull
 
         def forces(positions):
@@ -97,7 +97,7 @@ class TestForceDerivativeComputation(unittest.TestCase):
         self.assertEqual(cached, computed)
 
     def test_reads_cached_value(self):
-        cached = fd.ForceDerivatives('y', 2, self.positions, np.array([1.1, 2, 3, 4, 5, 6.1]))
+        cached = fd.TripletForceDerivatives('y', 2, self.positions, np.array([1.1, 2, 3, 4, 5, 6.1]))
         self.subject.cache.save_result(cached)
 
         computed = self.subject.derivative_of_forces('y', 2, self.positions)
@@ -142,7 +142,7 @@ class TestPairForceDerivativeComputation(unittest.TestCase):
 
 class TestForceDerivatives(unittest.TestCase):
     def setUp(self):
-        self.subject = fd.ForceDerivatives('x', 2, [0, 1, 2, 3, 4, 5], np.array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6]))
+        self.subject = fd.TripletForceDerivatives('x', 2, [0, 1, 2, 3, 4, 5], np.array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6]))
 
     def test_derivative(self):
         self.assertEqual(self.subject.derivative(1, 'x'), 0.1)
