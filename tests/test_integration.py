@@ -3,7 +3,8 @@ import os
 import sys
 import numpy as np
 import numpy.testing as np_test
-import elastic_const.force_derivatives as fd
+import elastic_const.pair_force_derivatives as pfd
+import elastic_const.triplet_force_derivatives as tfd
 import elastic_const.forces as fs
 from elastic_const.elastic_const_computation import compute_constants_xy_method
 from unittest.mock import Mock
@@ -15,12 +16,12 @@ class IntegrationTest(unittest.TestCase):
     def setUp(self):
         # TODO: hide warnings
         fs.FORCE_CACHE_FILE = 'triplet_forces_3.1.txt'
-        fd.DERIVATIVE_CACHE_FILE = 'computed_force_derivatives_3.1.txt'
+        tfd.DERIVATIVE_CACHE_FILE = 'computed_force_derivatives_3.1.txt'
         working_dir = os.path.join(dirname, 'test_data')
         self.pair_fem = fs.PairFemSimulation([], working_dir)
         self.triplet_fem = fs.TripletFemSimulation([], working_dir)
-        self.pair_fdc = fd.PairForceDerivativeComputation(self.pair_fem, order=11)
-        self.triplet_fdc = fd.TripletForceDerivativeComputation(working_dir, self.triplet_fem)
+        self.pair_fdc = pfd.PairForceDerivativeComputation(self.pair_fem, order=11)
+        self.triplet_fdc = tfd.TripletForceDerivativeComputation(working_dir, self.triplet_fem)
 
         self.pair_fem.cache.save_result = Mock()
         self.triplet_fem.cache.save_result = Mock()
