@@ -13,7 +13,7 @@ DERIVATIVE_CACHE_FILE = 'computed_force_derivatives.txt'
 
 class TripletForceDerivatives(object):
     def __init__(self, axis, particle_num, positions, derivatives):
-        self.positions = list(positions)
+        self.positions = np.copy(positions)
         self.particle_num = particle_num
         self.axis = axis.lower()
         self.derivatives = derivatives
@@ -34,7 +34,7 @@ class TripletForceDerivatives(object):
         if not isinstance(other, TripletForceDerivatives):
             return False
         return (self.axis == other.axis and self.particle_num == other.particle_num and
-                self.positions == other.positions and np.all(self.derivatives == other.derivatives))
+                np.allclose(self.positions, other.positions) and np.allclose(self.derivatives, other.derivatives))
 
     def have_coords(self, axis, particle_num, positions):
         return self.axis == axis and self.particle_num == particle_num and np.allclose(self.positions, positions)
@@ -46,14 +46,16 @@ class TripletForceDerivatives(object):
 
     def to_string(self):
         return '{0}{1} '.format(self.axis, self.particle_num) + ' '.join(
-            map(format_float, self.positions + list(self.derivatives))
+            map(format_float, list(self.positions.flatten()) + list(self.derivatives))
         )
 
     @classmethod
     def from_string(cls, string):
         variable, *numbers = string.split()
         parsed = list(map(float, numbers))
-        return cls(variable[0], int(variable[1]), parsed[0:6], parsed[6:])
+        positions = np.array(parsed[0:6])
+        positions.shape = (3, 2)  # FIXME: not 3D ready
+        return cls(variable[0], int(variable[1]), positions, parsed[6:])
 
 
 class TripletForceDerivativeCache(CacheBase):
@@ -90,26 +92,25 @@ class TripletForceDerivativeComputation(object):
         Parameters:
         particle_num: 1, 2, 3
         axis: 'x' or 'y'
-        positions: list of coordinates of 3 particles [x1, y1, x2, y2, x3, y3]
+        positions: ndarray of coordinates of 3 particles np.array([[x1, y1], [x2, y2], [x3, y3]])
         """
         axis = axis.lower()
         cached = self.cache.read(axis, particle_num, positions)
         if cached:
             return cached
 
-        variable_num = (particle_num - 1) * 2
-        if axis == 'y':
-            variable_num += 1
-        var_positions = list(positions)
+        axis_num = {'x': 0, 'y': 1, 'z': 2}[axis]
+        var_positions = np.copy(positions)
 
         def force_func(arg):
-            var_positions[variable_num] = arg
+            var_positions[particle_num - 1][axis_num] = arg
             result = np.array(self.simulation.compute_forces(var_positions).forces)
             logging.debug('positions = %s; forces = %s', var_positions, result)
             return result
 
         derivatives = self.derivative_func(
-            force_func, positions[variable_num], dx=self.__get_step(positions, particle_num), order=self.order
+            force_func, positions[particle_num - 1][axis_num],
+            dx=self.__get_step(positions, particle_num), order=self.order
         )
         result = TripletForceDerivatives(axis, particle_num, positions, derivatives)
         logging.debug(result)
@@ -118,7 +119,6 @@ class TripletForceDerivativeComputation(object):
 
     def __get_step(self, positions, num):
         num -= 1
-        positions = [np.array([p1, p2]) for p1, p2 in pairs(positions)]
         p = positions[num]
         min_dist = min(euclidean_distance(p, other) for i, other in enumerate(positions) if i != num)
         if min_dist - 2 * self.r < 1.0:

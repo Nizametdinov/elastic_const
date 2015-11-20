@@ -16,10 +16,10 @@ def normalization_transform(triangle):
 
 class TripletForces(object):
     def __init__(self, positions, forces):
-        if isinstance(positions[0], np.ndarray):
-            self.positions = positions
+        if isinstance(positions, np.ndarray):
+            self.positions = np.copy(positions)
         else:
-            self.positions = [np.array([p1, p2]) for p1, p2 in pairs(positions)]
+            self.positions = np.array(list(pairs(positions)))
         if isinstance(forces[0], np.ndarray):
             self.forces = list(np.array(forces).flatten())
         else:
@@ -51,13 +51,12 @@ class TripletForces(object):
         return 'TripletForces(positions={0}, forces={1})'.format(self.positions, self.forces)
 
     def flat_positions(self):
-        return np.array(self.positions).flatten()
+        return self.positions.flatten()
 
     def have_coords(self, positions):
-        return np.allclose(self.flat_positions(), positions)
+        return np.allclose(self.positions, positions)
 
     def change_positions(self, positions):
-        positions = [np.array([p1, p2]) for p1, p2 in pairs(positions)]
         nodes = list(enumerate(positions))
         ordered = order_points_by_distance(nodes, lambda p1, p2: euclidean_distance(p1[1], p2[1]))
         indices = [i for i, _ in ordered]
@@ -84,7 +83,7 @@ class TripletForces(object):
         points = [p - ordered[0][0] for p, _ in ordered]
         # rotate and mirror particles
         transform, _ = normalization_transform(points)
-        normalized_points = [transform.dot(p) for p in points]
+        normalized_points = np.array([transform.dot(p) for p in points])
         normalized_forces = [transform.dot(f) for f in ordered_forces]
         return TripletForces(normalized_points, normalized_forces)
 

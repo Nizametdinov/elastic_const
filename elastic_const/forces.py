@@ -74,8 +74,7 @@ class TripletForceCache(CacheBase):
         super().save_result(value.normalized())
 
     def read(self, positions):
-        points = [np.array([p1, p2]) for p1, p2 in pairs(positions)]
-        distances = sorted(pairwise_distances(points))
+        distances = sorted(pairwise_distances(positions))
         return next(
             (f.change_positions(positions) for f in self.values if np.allclose(f.distances, distances, rtol=1.e-6)),
             None
@@ -196,13 +195,13 @@ class TripletFemSimulation(FemSimulation):
         return TripletForces(positions, [0.] * 6)
 
     def _format_args_for_plan(self, positions):
-        return ' '.join(map(str, positions))
+        return ' '.join(map(str, positions.flatten()))
 
     def _create_config_file(self, positions):
         with open(self.config_file, 'w', encoding=FILE_ENCODING) as conf_file:
-            conf_file.write('x1 = {0}\n'.format(positions[0]))
-            conf_file.write('y1 = {0}\n'.format(positions[1]))
-            conf_file.write('x2 = {0}\n'.format(positions[2]))
-            conf_file.write('y2 = {0}\n'.format(positions[3]))
-            conf_file.write('x3 = {0}\n'.format(positions[4]))
-            conf_file.write('y3 = {0}\n'.format(positions[5]))
+            conf_file.write('x1 = {0}\n'.format(positions[0][0]))
+            conf_file.write('y1 = {0}\n'.format(positions[0][1]))
+            conf_file.write('x2 = {0}\n'.format(positions[1][0]))
+            conf_file.write('y2 = {0}\n'.format(positions[1][1]))
+            conf_file.write('x3 = {0}\n'.format(positions[2][0]))
+            conf_file.write('y3 = {0}\n'.format(positions[2][1]))

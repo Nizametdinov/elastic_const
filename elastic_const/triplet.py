@@ -1,4 +1,5 @@
 import math
+import numpy as np
 
 
 class Triplet(object):
@@ -7,6 +8,7 @@ class Triplet(object):
         self.m = m
         self.n = n
         self.particles = {'m': m, 'n': n, 'l': [0., 0.]}
+        self.positions = np.array([[0., 0.], m, n])
 
         self.fem = fem
         self.pair_fem = pair_fem
@@ -20,7 +22,7 @@ class Triplet(object):
 
         self.pair_forces = {}
         self.pair_force_derivatives = {}
-        self.triplet_forces = fem.compute_forces([0, 0, m[0], m[1], n[0], n[1]])
+        self.triplet_forces = fem.compute_forces(self.positions)
         self.triplet_force_derivatives = {}
 
     def f2(self, pair, coord):
@@ -62,7 +64,7 @@ class Triplet(object):
         dp_num = self._particle_num(dparticle)
         if key not in self.triplet_force_derivatives:
             self.triplet_force_derivatives[key] = self.fdc.derivative_of_forces(
-                dcoord_letter, dp_num, [0, 0, self.m[0], self.m[1], self.n[0], self.n[1]]
+                dcoord_letter, dp_num, self.positions
             )
         coord_letter = self._coord_letter(coord)
         p_num = self._particle_num(particle)
