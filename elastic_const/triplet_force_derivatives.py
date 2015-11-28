@@ -168,66 +168,65 @@ class TripletDerivativeSet(object):
     def try_deduce(self, axis, particle_num, positions):
         # Renumbering
         # positions[0] should be [0, 0]
-        r12 = np.linalg.norm(positions[1])
-        cos_theta = positions[1].dot(self.positions[1]) / (r12 * r12)
-        sin_theta = cross_product_2d(self.positions[1], positions[1]) / (r12 * r12)
+        particle_num -= 1
+        r = np.linalg.norm(positions[particle_num])
+        cos_theta = positions[particle_num].dot(self.positions[particle_num]) / (r * r)
+        sin_theta = cross_product_2d(self.positions[particle_num], positions[particle_num]) / (r * r)
         transform_matrix = np.array([
             [cos_theta, -sin_theta],
             [sin_theta,  cos_theta]
         ])
         inverse_transform = transform_matrix.T
-        if particle_num == 2:
+        if particle_num != 0:
             coord_num = {'x': 0, 'y': 1, 'z': 2}[axis]
             pair_coord_num = {0: 1, 1: 0}[coord_num]
-            x2, y2, *_ = positions[1]
-            x3, y3, *_ = positions[2]
 
-            dcos_theta = self.positions[1][coord_num] * r12 ** 2
-            dcos_theta -= positions[1][coord_num] * positions[1].dot(self.positions[1])
-            dcos_theta /= r12 ** 4
-            dsin_theta = (-1) ** (coord_num + 1) * self.positions[1][pair_coord_num] * r12 ** 2
-            dsin_theta -= positions[1][coord_num] * cross_product_2d(self.positions[1], positions[1])
-            dsin_theta /= (r12 ** 4)
+            dcos_theta = self.positions[particle_num][coord_num] * r ** 2
+            dcos_theta -= positions[particle_num][coord_num] * positions[particle_num].dot(self.positions[particle_num])
+            dcos_theta /= r ** 4
+            dsin_theta = (-1) ** (coord_num + 1) * self.positions[particle_num][pair_coord_num] * r ** 2
+            dsin_theta -= (positions[particle_num][coord_num] *
+                           cross_product_2d(self.positions[particle_num], positions[particle_num]))
+            dsin_theta /= r ** 4
 
-            dp02 = np.array([
-                x2 * dcos_theta + y2 * dsin_theta,
-                -x2 * dsin_theta + y2 * dcos_theta
-            ]) + inverse_transform[:, coord_num]
-            dp03 = np.array([
-                x3 * dcos_theta + y3 * dsin_theta,
-                -x3 * dsin_theta + y3 * dcos_theta
+            d_inverse_transform = np.array([
+                [ dcos_theta, dsin_theta],
+                [-dsin_theta, dcos_theta]
             ])
+            d_transform = d_inverse_transform.T
 
-            F01x = self.forces.force(1, 'x')
-            F01y = self.forces.force(1, 'y')
-            F02x = self.forces.force(2, 'x')
-            F02y = self.forces.force(2, 'y')
-            F03x = self.forces.force(3, 'x')
-            F03y = self.forces.force(3, 'y')
+            dp02 = d_inverse_transform.dot(positions[1])
+            dp03 = d_inverse_transform.dot(positions[2])
+            dp0 = np.array([dp02, dp03])
+            dp0[particle_num - 1] += inverse_transform[:, coord_num]
 
-            deriv_matrix_2_2 = np.array([self.derivatives['x2'].derivative(2), self.derivatives['y2'].derivative(2)]).T
-            deriv_matrix_3_2 = np.array([self.derivatives['x3'].derivative(2), self.derivatives['y3'].derivative(2)]).T
-            dF02x_dx2, dF02y_dx2 = deriv_matrix_2_2.dot(dp02) + deriv_matrix_3_2.dot(dp03)
+            F01 = self.forces.force(1)
+            F02 = self.forces.force(2)
+            F03 = self.forces.force(3)
 
-            dF2x_dx2 = dF02x_dx2 * cos_theta - dF02y_dx2 * sin_theta + F02x * dcos_theta - F02y * dsin_theta
-            dF2y_dx2 = dF02x_dx2 * sin_theta + dF02y_dx2 * cos_theta + F02x * dsin_theta + F02y * dcos_theta
+            deriv_matrix_1 = np.array([
+                [self.derivatives['x2'].derivative(1), self.derivatives['y2'].derivative(1)],
+                [self.derivatives['x3'].derivative(1), self.derivatives['y3'].derivative(1)]
+            ])
+            dF01 = np.tensordot(deriv_matrix_1, dp0, axes=([0, 1], [0, 1]))
+            dF1 = transform_matrix.dot(dF01) + d_transform.dot(F01)
 
-            deriv_matrix_2_3 = np.array([self.derivatives['x2'].derivative(3), self.derivatives['y2'].derivative(3)]).T
-            deriv_matrix_3_3 = np.array([self.derivatives['x3'].derivative(3), self.derivatives['y3'].derivative(3)]).T
-            dF03x_dx2, dF03y_dx2 = deriv_matrix_2_3.dot(dp02) + deriv_matrix_3_3.dot(dp03)
+            deriv_matrix_2 = np.array([
+                [self.derivatives['x2'].derivative(2), self.derivatives['y2'].derivative(2)],
+                [self.derivatives['x3'].derivative(2), self.derivatives['y3'].derivative(2)]
+            ])
+            dF02 = np.tensordot(deriv_matrix_2, dp0, axes=([0, 1], [0, 1]))
+            dF2 = transform_matrix.dot(dF02) + d_transform.dot(F02)
 
-            dF3x_dx2 = dF03x_dx2 * cos_theta - dF03y_dx2 * sin_theta + F03x * dcos_theta - F03y * dsin_theta
-            dF3y_dx2 = dF03x_dx2 * sin_theta + dF03y_dx2 * cos_theta + F03x * dsin_theta + F03y * dcos_theta
-
-            deriv_matrix_2_1 = np.array([self.derivatives['x2'].derivative(1), self.derivatives['y2'].derivative(1)]).T
-            deriv_matrix_3_1 = np.array([self.derivatives['x3'].derivative(1), self.derivatives['y3'].derivative(1)]).T
-            dF01x_dx2, dF01y_dx2 = deriv_matrix_2_1.dot(dp02) + deriv_matrix_3_1.dot(dp03)
-
-            dF1x_dx2 = dF01x_dx2 * cos_theta - dF01y_dx2 * sin_theta + F01x * dcos_theta - F01y * dsin_theta
-            dF1y_dx2 = dF01x_dx2 * sin_theta + dF01y_dx2 * cos_theta + F01x * dsin_theta + F01y * dcos_theta
+            deriv_matrix_3 = np.array([
+                [self.derivatives['x2'].derivative(3), self.derivatives['y2'].derivative(3)],
+                [self.derivatives['x3'].derivative(3), self.derivatives['y3'].derivative(3)]
+            ])
+            dF03 = np.tensordot(deriv_matrix_3, dp0, axes=([0, 1], [0, 1]))
+            dF3 = transform_matrix.dot(dF03) + d_transform.dot(F03)
 
             return TripletForceDerivatives(
-                axis, particle_num, positions, np.array([dF1x_dx2, dF1y_dx2, dF2x_dx2, dF2y_dx2, dF3x_dx2, dF3y_dx2])
+                axis, particle_num + 1, positions, np.array([dF1[0], dF1[1], dF2[0], dF2[1], dF3[0], dF3[1]])
             )
 
         return None
