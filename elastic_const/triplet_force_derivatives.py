@@ -1,7 +1,7 @@
 from scipy.misc import derivative
 from os import path
 from elastic_const.cache_base import CacheBase
-from elastic_const.misc import format_float, euclidean_distance, pairwise_distances, cross_product_2d
+from elastic_const.misc import format_float, euclidean_distance, pairwise_distances, cross_product_2d, shift_triangle
 import numpy as np
 import logging
 
@@ -160,6 +160,9 @@ class TripletDerivativeSet(object):
         if self.triplet_fdc:
             self.forces = self.triplet_fdc.simulation.compute_forces(positions)
 
+    def __particles_with_derivatives(self):
+        return {i for i in range(3) if 'x' + str(i + 1) in self.derivatives}
+
     def add_derivatives(self, force_derivatives):
         assert np.allclose(self.positions, force_derivatives.positions)
         variable = force_derivatives.axis + str(force_derivatives.particle_num)
@@ -176,12 +179,13 @@ class TripletDerivativeSet(object):
         if cross_product_2d(positions[1], positions[2]) * cross_product_2d(self.positions[1], self.positions[2]) < 0:
             mirror[pair_coord_num, pair_coord_num] = -1.
         new_positions = np.tensordot(positions, mirror, axes=1)
-        old_positions = self.positions
-        pair_particle_num = {0: 1, 1: 2, 2: 1}[particle_num]
-        if particle_num == 0:
-            for i in range(3):
-                new_positions[i] -= new_positions[2]
-                old_positions[i] -= old_positions[2]
+        old_positions = np.copy(self.positions)
+
+        pair_particle_num = (self.__particles_with_derivatives() - {particle_num}).pop()
+        spare_particle = ({0, 1, 2} - {particle_num, pair_particle_num}).pop()
+
+        new_positions = shift_triangle(new_positions, -new_positions[spare_particle])
+        old_positions = shift_triangle(old_positions, -old_positions[spare_particle])
 
         r = np.linalg.norm(new_positions[particle_num])
         cos_theta = new_positions[particle_num].dot(old_positions[particle_num]) / (r * r)
@@ -193,7 +197,8 @@ class TripletDerivativeSet(object):
         inverse_transform = transform_matrix.T
 
         dcos_theta = old_positions[particle_num][coord_num] * r ** 2
-        dcos_theta -= new_positions[particle_num][coord_num] * new_positions[particle_num].dot(old_positions[particle_num])
+        dcos_theta -= (new_positions[particle_num][coord_num] *
+                       new_positions[particle_num].dot(old_positions[particle_num]))
         dcos_theta /= r ** 4
         dsin_theta = (-1) ** (coord_num + 1) * old_positions[particle_num][pair_coord_num] * r ** 2
         dsin_theta -= (new_positions[particle_num][coord_num] *
@@ -211,40 +216,19 @@ class TripletDerivativeSet(object):
         dp0 = np.array([dp02, dp03])
         dp0[0] += inverse_transform[:, coord_num]
 
-        F01 = self.forces.force(1)
-        F02 = self.forces.force(2)
-        F03 = self.forces.force(3)
+        dfs = []
+        for i in range(3):
+            f0i = self.forces.force(i + 1)
+            deriv_matrix = np.array([
+                [self.derivatives['x' + str(particle_num + 1)].derivative(i + 1),
+                 self.derivatives['y' + str(particle_num + 1)].derivative(i + 1)],
+                [self.derivatives['x' + str(pair_particle_num + 1)].derivative(i + 1),
+                 self.derivatives['y' + str(pair_particle_num + 1)].derivative(i + 1)]
+            ])
+            df0i = np.tensordot(deriv_matrix, dp0, axes=([0, 1], [0, 1]))
+            dfs.append(mirror.dot(transform_matrix.dot(df0i) + d_transform.dot(f0i)))
 
-        deriv_matrix_1 = np.array([
-            [self.derivatives['x' + str(particle_num + 1)].derivative(1),
-             self.derivatives['y' + str(particle_num + 1)].derivative(1)],
-            [self.derivatives['x' + str(pair_particle_num + 1)].derivative(1),
-             self.derivatives['y' + str(pair_particle_num + 1)].derivative(1)]
-        ])
-        dF01 = np.tensordot(deriv_matrix_1, dp0, axes=([0, 1], [0, 1]))
-        dF1 = transform_matrix.dot(dF01) + d_transform.dot(F01)
-
-        deriv_matrix_2 = np.array([
-            [self.derivatives['x' + str(particle_num + 1)].derivative(2),
-             self.derivatives['y' + str(particle_num + 1)].derivative(2)],
-            [self.derivatives['x' + str(pair_particle_num + 1)].derivative(2),
-             self.derivatives['y' + str(pair_particle_num + 1)].derivative(2)]
-        ])
-        dF02 = np.tensordot(deriv_matrix_2, dp0, axes=([0, 1], [0, 1]))
-        dF2 = transform_matrix.dot(dF02) + d_transform.dot(F02)
-
-        deriv_matrix_3 = np.array([
-            [self.derivatives['x' + str(particle_num + 1)].derivative(3),
-             self.derivatives['y' + str(particle_num + 1)].derivative(3)],
-            [self.derivatives['x' + str(pair_particle_num + 1)].derivative(3),
-             self.derivatives['y' + str(pair_particle_num + 1)].derivative(3)]
-        ])
-        dF03 = np.tensordot(deriv_matrix_3, dp0, axes=([0, 1], [0, 1]))
-        dF3 = transform_matrix.dot(dF03) + d_transform.dot(F03)
-
-        dF1 = mirror.dot(dF1)
-        dF2 = mirror.dot(dF2)
-        dF3 = mirror.dot(dF3)
         return TripletForceDerivatives(
-            axis, particle_num + 1, positions, np.array([dF1[0], dF1[1], dF2[0], dF2[1], dF3[0], dF3[1]])
+            axis, particle_num + 1, positions,
+            np.array([dfs[0][0], dfs[0][1], dfs[1][0], dfs[1][1], dfs[2][0], dfs[2][1]])
         )

@@ -263,6 +263,8 @@ class TestTripletDerivativeSet(unittest.TestCase):
             [np.sqrt(3) / 2, -0.5],
             [0.5, np.sqrt(3) / 2]
         ])
+        self.subject.derivatives.pop('x2')
+        self.subject.derivatives.pop('y2')
         self.subject.add_derivatives(fd.TripletForceDerivatives(
             'x', 1, self.positions,
             np.array([-4.15255934, -0.59297549, 3.86246549, 0.054379, 0.29008511, 0.53860772])
