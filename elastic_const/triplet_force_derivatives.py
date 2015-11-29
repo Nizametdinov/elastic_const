@@ -1,7 +1,8 @@
 from scipy.misc import derivative
 from os import path
 from elastic_const.cache_base import CacheBase
-from elastic_const.misc import format_float, euclidean_distance, pairwise_distances, cross_product_2d, shift_triangle
+from elastic_const.misc import format_float, euclidean_distance, pairwise_distances, cross_product_2d, shift_triangle, \
+    renumbering, reverse_renumbering, apply_renumbering
 import numpy as np
 import logging
 
@@ -168,17 +169,22 @@ class TripletDerivativeSet(object):
         variable = force_derivatives.axis + str(force_derivatives.particle_num)
         self.derivatives[variable] = force_derivatives
 
-    def try_deduce(self, axis, particle_num, positions):
-        # Renumbering
-        # positions[0] should be [0, 0]
-        particle_num -= 1
+    def try_deduce(self, axis, particle, positions):
+        renum = renumbering(self.positions, positions)
+        reverse_renum = reverse_renumbering(renum)
+        new_positions = apply_renumbering(renum, positions)
+        # TODO: think about renumbering for isosceles triangle
+
+        particle_num = particle - 1
+        particle_num = renum[particle_num]
+
         coord_num = {'x': 0, 'y': 1}[axis]
         pair_coord_num = {0: 1, 1: 0}[coord_num]
 
         mirror = np.identity(2) # No mirror
-        if cross_product_2d(positions[1], positions[2]) * cross_product_2d(self.positions[1], self.positions[2]) < 0:
+        if cross_product_2d(new_positions[1], new_positions[2]) * cross_product_2d(self.positions[1], self.positions[2]) < 0:
             mirror[pair_coord_num, pair_coord_num] = -1.
-        new_positions = np.tensordot(positions, mirror, axes=1)
+        new_positions = np.tensordot(new_positions, mirror, axes=1)
         old_positions = np.copy(self.positions)
 
         pair_particle_num = (self.__particles_with_derivatives() - {particle_num}).pop()
@@ -211,10 +217,10 @@ class TripletDerivativeSet(object):
         ])
         d_inverse_transform = d_transform.T
 
-        dp02 = d_inverse_transform.dot(new_positions[particle_num])
-        dp03 = d_inverse_transform.dot(new_positions[pair_particle_num])
-        dp0 = np.array([dp02, dp03])
-        dp0[0] += inverse_transform[:, coord_num]
+        dp0 = np.array([
+            d_inverse_transform.dot(new_positions[particle_num]) + inverse_transform[:, coord_num],
+            d_inverse_transform.dot(new_positions[pair_particle_num])
+        ])
 
         dfs = []
         for i in range(3):
@@ -228,7 +234,8 @@ class TripletDerivativeSet(object):
             df0i = np.tensordot(deriv_matrix, dp0, axes=([0, 1], [0, 1]))
             dfs.append(mirror.dot(transform_matrix.dot(df0i) + d_transform.dot(f0i)))
 
+        dfs = apply_renumbering(reverse_renum, dfs)
         return TripletForceDerivatives(
-            axis, particle_num + 1, positions,
+            axis, particle, positions,
             np.array([dfs[0][0], dfs[0][1], dfs[1][0], dfs[1][1], dfs[2][0], dfs[2][1]])
         )

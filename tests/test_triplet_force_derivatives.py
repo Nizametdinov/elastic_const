@@ -318,6 +318,14 @@ class TestTripletDerivativeSet(unittest.TestCase):
             atol=1e-5
         )
 
+    def test_renumbered(self):
+        new_positions = np.array([[0., 0.], self.p3, self.p2])
+        computed = self.subject.try_deduce('x', 2, new_positions)
+        np_test.assert_allclose(
+            computed.derivatives, [0.29009147, 0.59165673, 0.42877687, 0.12287993, -0.71886792, -0.71453534],
+            atol=1e-5
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
