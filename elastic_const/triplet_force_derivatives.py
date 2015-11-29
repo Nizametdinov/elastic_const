@@ -169,34 +169,40 @@ class TripletDerivativeSet(object):
         # Renumbering
         # positions[0] should be [0, 0]
         particle_num -= 1
-        r = np.linalg.norm(positions[particle_num])
-        cos_theta = positions[particle_num].dot(self.positions[particle_num]) / (r * r)
-        sin_theta = cross_product_2d(self.positions[particle_num], positions[particle_num]) / (r * r)
+        coord_num = {'x': 0, 'y': 1}[axis]
+        pair_coord_num = {0: 1, 1: 0}[coord_num]
+
+        mirror = np.identity(2) # No mirror
+        if cross_product_2d(positions[1], positions[2]) * cross_product_2d(self.positions[1], self.positions[2]) < 0:
+            mirror[pair_coord_num, pair_coord_num] = -1.
+        new_positions = np.tensordot(positions, mirror, axes=1)
+
+        r = np.linalg.norm(new_positions[particle_num])
+        cos_theta = new_positions[particle_num].dot(self.positions[particle_num]) / (r * r)
+        sin_theta = cross_product_2d(self.positions[particle_num], new_positions[particle_num]) / (r * r)
         transform_matrix = np.array([
             [cos_theta, -sin_theta],
             [sin_theta,  cos_theta]
         ])
         inverse_transform = transform_matrix.T
-        if particle_num != 0:
-            coord_num = {'x': 0, 'y': 1, 'z': 2}[axis]
-            pair_coord_num = {0: 1, 1: 0}[coord_num]
 
+        if particle_num != 0:
             dcos_theta = self.positions[particle_num][coord_num] * r ** 2
-            dcos_theta -= positions[particle_num][coord_num] * positions[particle_num].dot(self.positions[particle_num])
+            dcos_theta -= new_positions[particle_num][coord_num] * new_positions[particle_num].dot(self.positions[particle_num])
             dcos_theta /= r ** 4
             dsin_theta = (-1) ** (coord_num + 1) * self.positions[particle_num][pair_coord_num] * r ** 2
-            dsin_theta -= (positions[particle_num][coord_num] *
-                           cross_product_2d(self.positions[particle_num], positions[particle_num]))
+            dsin_theta -= (new_positions[particle_num][coord_num] *
+                           cross_product_2d(self.positions[particle_num], new_positions[particle_num]))
             dsin_theta /= r ** 4
 
-            d_inverse_transform = np.array([
-                [ dcos_theta, dsin_theta],
-                [-dsin_theta, dcos_theta]
+            d_transform = np.array([
+                [dcos_theta, -dsin_theta],
+                [dsin_theta,  dcos_theta]
             ])
-            d_transform = d_inverse_transform.T
+            d_inverse_transform = d_transform.T
 
-            dp02 = d_inverse_transform.dot(positions[1])
-            dp03 = d_inverse_transform.dot(positions[2])
+            dp02 = d_inverse_transform.dot(new_positions[1])
+            dp03 = d_inverse_transform.dot(new_positions[2])
             dp0 = np.array([dp02, dp03])
             dp0[particle_num - 1] += inverse_transform[:, coord_num]
 
@@ -225,6 +231,9 @@ class TripletDerivativeSet(object):
             dF03 = np.tensordot(deriv_matrix_3, dp0, axes=([0, 1], [0, 1]))
             dF3 = transform_matrix.dot(dF03) + d_transform.dot(F03)
 
+            dF1 = mirror.dot(dF1)
+            dF2 = mirror.dot(dF2)
+            dF3 = mirror.dot(dF3)
             return TripletForceDerivatives(
                 axis, particle_num + 1, positions, np.array([dF1[0], dF1[1], dF2[0], dF2[1], dF3[0], dF3[1]])
             )
