@@ -185,6 +185,20 @@ class TestTripletForceCache(unittest.TestCase):
         np_test.assert_equal(cached.positions, np.array([[0, 0], [-1, 0], [-1, 2]]))
         self.assertEqual(cached.forces, [1.2, -0.3, -1., -0.5, -0.2, 0.8])
 
+    def test_small_shifts(self):
+        forces = fs.TripletForces(np.array([[0, 0], [-2.3, 0.], [-4.6, 0]]), [0.3, 0., 0., 0., 0., 0.2])
+        self.subject.save_result(forces)
+
+        cached = self.subject.read(np.array([[0, 0], [-2.3, 0.], [-4.6, -3.e-3]]))
+        self.assertIsNone(cached)
+
+    def test_small_shifts2(self):
+        forces = fs.TripletForces(np.array([[0, 0], [-2.1, 0.], [-4.2, 0]]), [0.3, 0., 0., 0., 0., 0.2])
+        self.subject.save_result(forces)
+
+        cached = self.subject.read(np.array([[0, 0], [-2.1, 0.], [-4.2, -1.e-3]]))
+        self.assertIsNone(cached)
+
     def tearDown(self):
         os.remove(self.cache_file)
 
