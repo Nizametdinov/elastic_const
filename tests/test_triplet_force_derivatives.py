@@ -198,6 +198,17 @@ class TestTripletDerivativeSet(unittest.TestCase):
             np.array([0.53861846, 0.49871114, -0.66149429, 3.46864056, 0.12287998, -3.96734753])
         ))
 
+    def test_the_same_coordinates(self):
+        computed = self.subject.try_deduce('y', 3, self.positions)
+        np_test.assert_equal(
+            computed.derivatives, np.array([0.53861846, 0.49871114, -0.66149429, 3.46864056, 0.12287998, -3.96734753])
+        )
+
+    def test_the_same_coordinates_no_derivative(self):
+        # It should return None to prevent infinite loops
+        computed = self.subject.try_deduce('x', 1, self.positions)
+        self.assertIsNone(computed)
+
     def test_rotated_y2_derivative(self):
         rotation_matrix = np.array([
             [np.sqrt(3) / 2, -0.5],
@@ -323,6 +334,19 @@ class TestTripletDerivativeSet(unittest.TestCase):
         computed = self.subject.try_deduce('x', 2, new_positions)
         np_test.assert_allclose(
             computed.derivatives, [0.29009147, 0.59165673, 0.42877687, 0.12287993, -0.71886792, -0.71453534],
+            atol=1e-5
+        )
+
+    def test_rotated_and_renumbered(self):
+        rotation_matrix = np.array([
+            [np.sqrt(3) / 2, -0.5],
+            [0.5, np.sqrt(3) / 2]
+        ])
+
+        new_positions = np.array([rotation_matrix.dot(self.p3), [0., 0.], rotation_matrix.dot(self.p2)])
+        computed = self.subject.try_deduce('y', 1, new_positions)
+        np_test.assert_allclose(
+            computed.derivatives, [1.96501173, -2.76189617, 0.16571466, 0.93597361, -2.13073534, 1.82592165],
             atol=1e-5
         )
 

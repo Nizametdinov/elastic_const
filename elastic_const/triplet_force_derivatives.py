@@ -2,7 +2,7 @@ from scipy.misc import derivative
 from os import path
 from elastic_const.cache_base import CacheBase
 from elastic_const.misc import format_float, euclidean_distance, pairwise_distances, cross_product_2d, shift_triangle, \
-    renumbering, reverse_renumbering, apply_renumbering
+    renumbering, reverse_renumbering, apply_renumbering, pairs
 import numpy as np
 import logging
 
@@ -174,6 +174,16 @@ class TripletDerivativeSet(object):
         reverse_renum = reverse_renumbering(renum)
         new_positions = apply_renumbering(renum, positions)
         # TODO: think about renumbering for isosceles triangle
+
+        if np.allclose(self.positions, new_positions):
+            variable = axis + str(renum[particle - 1] + 1)
+            derivatives = self.derivatives.get(variable, None)
+            if derivatives is None:
+                return None
+            derivatives = apply_renumbering(reverse_renum, list(pairs(derivatives.derivatives)))
+            return TripletForceDerivatives(
+                axis, particle, positions, np.array(derivatives).flatten()
+            )
 
         particle_num = particle - 1
         particle_num = renum[particle_num]
