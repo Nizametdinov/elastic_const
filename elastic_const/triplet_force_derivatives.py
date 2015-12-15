@@ -83,7 +83,7 @@ class TripletForceDerivativeCache(CacheBase):
         sorted_distances = sorted(pairwise_distances(positions))
         derivative_set = next((s for s in self.sets if np.allclose(s.sorted_distances, sorted_distances)), None)
         if derivative_set:
-            return derivative_set.try_deduce(axis, particle_num, positions)
+            return derivative_set.calculate_rotated_derivatives(axis, particle_num, positions)
         else:
             return None
 
@@ -153,7 +153,7 @@ class TripletForceDerivativeComputation(object):
 class TripletDerivativeSet(object):
     """This class stores set of derivatives for triplets with the save positions"""
 
-    def __init__(self, positions, triplet_fdc):
+    def __init__(self, positions, triplet_fdc: TripletForceDerivativeComputation):
         self.positions = np.copy(positions)
         self.sorted_distances = sorted(pairwise_distances(positions))
         self.derivatives = {}
@@ -164,12 +164,12 @@ class TripletDerivativeSet(object):
     def __particles_with_derivatives(self):
         return {i for i in range(3) if 'x' + str(i + 1) in self.derivatives}
 
-    def add_derivatives(self, force_derivatives):
+    def add_derivatives(self, force_derivatives: TripletForceDerivatives):
         assert np.allclose(self.positions, force_derivatives.positions)
         variable = force_derivatives.axis + str(force_derivatives.particle_num)
         self.derivatives[variable] = force_derivatives
 
-    def try_deduce(self, axis, particle, positions):
+    def calculate_rotated_derivatives(self, axis, particle, positions):
         renum = renumbering(self.positions, positions)
         reverse_renum = reverse_renumbering(renum)
         new_positions = apply_renumbering(renum, positions)
@@ -191,8 +191,10 @@ class TripletDerivativeSet(object):
         coord_num = {'x': 0, 'y': 1}[axis]
         pair_coord_num = {0: 1, 1: 0}[coord_num]
 
-        mirror = np.identity(2) # No mirror
-        if cross_product_2d(new_positions[1], new_positions[2]) * cross_product_2d(self.positions[1], self.positions[2]) < 0:
+        mirror = np.identity(2)  # No mirror
+        new_sin_12 = cross_product_2d(new_positions[1] - new_positions[0], new_positions[2] - new_positions[0])
+        old_sin_12 = cross_product_2d(self.positions[1] - self.positions[0], self.positions[2] - self.positions[0])
+        if new_sin_12 * old_sin_12 < 0:
             mirror[pair_coord_num, pair_coord_num] = -1.
         new_positions = np.tensordot(new_positions, mirror, axes=1)
         old_positions = np.copy(self.positions)

@@ -199,14 +199,14 @@ class TestTripletDerivativeSet(unittest.TestCase):
         ))
 
     def test_the_same_coordinates(self):
-        computed = self.subject.try_deduce('y', 3, self.positions)
+        computed = self.subject.calculate_rotated_derivatives('y', 3, self.positions)
         np_test.assert_equal(
             computed.derivatives, np.array([0.53861846, 0.49871114, -0.66149429, 3.46864056, 0.12287998, -3.96734753])
         )
 
     def test_the_same_coordinates_no_derivative(self):
         # It should return None to prevent infinite loops
-        computed = self.subject.try_deduce('x', 1, self.positions)
+        computed = self.subject.calculate_rotated_derivatives('x', 1, self.positions)
         self.assertIsNone(computed)
 
     def test_rotated_y2_derivative(self):
@@ -216,7 +216,7 @@ class TestTripletDerivativeSet(unittest.TestCase):
         ])
 
         new_positions = np.array([[0., 0.], rotation_matrix.dot(self.p2), rotation_matrix.dot(self.p3)])
-        computed = self.subject.try_deduce('y', 2, new_positions)
+        computed = self.subject.calculate_rotated_derivatives('y', 2, new_positions)
         np_test.assert_allclose(
             computed.derivatives, [2.09958592, 0.32004116, 0.08419019, -2.14597441, -2.18377565, 1.82592549],
             atol=1e-5
@@ -229,7 +229,7 @@ class TestTripletDerivativeSet(unittest.TestCase):
         ])
 
         new_positions = np.array([[0., 0.], rotation_matrix.dot(self.p2), rotation_matrix.dot(self.p3)])
-        computed = self.subject.try_deduce('x', 3, new_positions)
+        computed = self.subject.calculate_rotated_derivatives('x', 3, new_positions)
         np_test.assert_allclose(
             computed.derivatives, [-0.14717415, 0.21875807, 0.92384142, -2.18377092, -0.77666836, 1.96501366],
             atol=1e-5
@@ -242,7 +242,7 @@ class TestTripletDerivativeSet(unittest.TestCase):
         ])
 
         new_positions = np.array([[0., 0.], rotation_matrix.dot(self.p2), rotation_matrix.dot(self.p3)])
-        computed = self.subject.try_deduce('y', 3, new_positions)
+        computed = self.subject.calculate_rotated_derivatives('y', 3, new_positions)
         np_test.assert_allclose(
             computed.derivatives, [0.16571466, 0.93597361, -2.13073534, 1.82592165, 1.96501173, -2.76189617],
             atol=1e-5
@@ -263,7 +263,7 @@ class TestTripletDerivativeSet(unittest.TestCase):
         ))
 
         new_positions = np.array([[0., 0.], rotation_matrix.dot(self.p2), rotation_matrix.dot(self.p3)])
-        computed = self.subject.try_deduce('x', 1, new_positions)
+        computed = self.subject.calculate_rotated_derivatives('x', 1, new_positions)
         np_test.assert_allclose(
             computed.derivatives, [-2.5023743, -2.26537588, 2.649552, 2.09953878, -0.14720147, 0.16579731],
             atol=1e-4
@@ -286,7 +286,7 @@ class TestTripletDerivativeSet(unittest.TestCase):
         ))
 
         new_positions = np.array([[0., 0.], rotation_matrix.dot(self.p2), rotation_matrix.dot(self.p3)])
-        computed = self.subject.try_deduce('y', 1, new_positions)
+        computed = self.subject.calculate_rotated_derivatives('y', 1, new_positions)
         np_test.assert_allclose(
             computed.derivatives, [-2.26530015, -1.2560202, 2.04654162, 0.32005076, 0.21875879, 0.93596839],
             atol=1e-4
@@ -299,12 +299,12 @@ class TestTripletDerivativeSet(unittest.TestCase):
         ])
 
         new_positions = np.array([[0., 0.], transform_matrix.dot(self.p2), transform_matrix.dot(self.p3)])
-        computed = self.subject.try_deduce('x', 3, new_positions)
+        computed = self.subject.calculate_rotated_derivatives('x', 3, new_positions)
         np_test.assert_allclose(
             computed.derivatives, [0.49871114, 0.53861846, 3.46864056, -0.66149429, -3.96734753, 0.12287998],
             atol=1e-5
         )
-        computed = self.subject.try_deduce('y', 3, new_positions)
+        computed = self.subject.calculate_rotated_derivatives('y', 3, new_positions)
         np_test.assert_allclose(
             computed.derivatives, [0.59165673, 0.29009147, -0.71453534, -0.71886792, 0.12287993, 0.42877687],
             atol=1e-5
@@ -317,13 +317,13 @@ class TestTripletDerivativeSet(unittest.TestCase):
         ]).dot(np.array([[1, 0], [0, -1]]))
 
         new_positions = np.array([[0., 0.], transform_matrix.dot(self.p2), transform_matrix.dot(self.p3)])
-        computed = self.subject.try_deduce('x', 2, new_positions)
+        computed = self.subject.calculate_rotated_derivatives('x', 2, new_positions)
         np_test.assert_allclose(
             computed.derivatives, [0.32004116, 2.09958592, -2.14597441, 0.08419019, 1.82592549, -2.18377565],
             atol=1e-5
         )
 
-        computed = self.subject.try_deduce('y', 2, new_positions)
+        computed = self.subject.calculate_rotated_derivatives('y', 2, new_positions)
         np_test.assert_allclose(
             computed.derivatives, [2.04654145, 2.64949995, 0.08418033, -3.57334059, -2.13072143, 0.92384189],
             atol=1e-5
@@ -331,7 +331,7 @@ class TestTripletDerivativeSet(unittest.TestCase):
 
     def test_renumbered(self):
         new_positions = np.array([[0., 0.], self.p3, self.p2])
-        computed = self.subject.try_deduce('x', 2, new_positions)
+        computed = self.subject.calculate_rotated_derivatives('x', 2, new_positions)
         np_test.assert_allclose(
             computed.derivatives, [0.29009147, 0.59165673, 0.42877687, 0.12287993, -0.71886792, -0.71453534],
             atol=1e-5
@@ -344,10 +344,23 @@ class TestTripletDerivativeSet(unittest.TestCase):
         ])
 
         new_positions = np.array([rotation_matrix.dot(self.p3), [0., 0.], rotation_matrix.dot(self.p2)])
-        computed = self.subject.try_deduce('y', 1, new_positions)
+        computed = self.subject.calculate_rotated_derivatives('y', 1, new_positions)
         np_test.assert_allclose(
             computed.derivatives, [1.96501173, -2.76189617, 0.16571466, 0.93597361, -2.13073534, 1.82592165],
             atol=1e-5
+        )
+
+    def test_mirrored_shifted_and_renumbered(self):
+        mirror_matrix = np.array([
+            [-1, 0],
+            [ 0, 1]
+        ])
+
+        new_positions = np.array([[0., 0.], mirror_matrix.dot(-self.p3), mirror_matrix.dot(self.p2 - self.p3)])
+        computed = self.subject.calculate_rotated_derivatives('y', 3, new_positions)
+        np_test.assert_allclose(
+            computed.derivatives, [0.7145375, 3.46862663, -0.05438376, -0.89292005, -0.66015376, -2.57570787],
+            atol=1e-4
         )
 
 
