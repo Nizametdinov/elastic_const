@@ -26,7 +26,6 @@ class TripletForces(object):
             self.forces = list(forces)
         self.distances = sorted(pairwise_distances(self.positions))
 
-
     def force(self, particle_num, axis=None):
         """
         Returns force acting on particle with given number along given axis.

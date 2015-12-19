@@ -363,6 +363,57 @@ class TestTripletDerivativeSet(unittest.TestCase):
             atol=1e-4
         )
 
+    def test_not_enough_data(self):
+        called_with_axes = []
+
+        def derivative_of_forces(axis, particle_num, positions, skip_cache):
+            self.assertEqual(particle_num, 1)
+            np_test.assert_equal(positions, self.positions)
+            self.assertTrue(skip_cache)
+            called_with_axes.append(axis)
+            return fd.TripletForceDerivatives(
+                axis, 1, self.positions,
+                np.array([-4.15255934, -0.59297549, 3.86246549, 0.054379, 0.29008511, 0.53860772])
+            )
+
+        self.subject.triplet_fdc.derivative_of_forces = Mock(side_effect=derivative_of_forces)
+        rotation_matrix = np.array([
+            [np.sqrt(3) / 2, -0.5],
+            [0.5, np.sqrt(3) / 2]
+        ])
+
+        new_positions = np.array([[0., 0.], rotation_matrix.dot(self.p2), rotation_matrix.dot(self.p3)])
+        self.subject.calculate_rotated_derivatives('x', 1, new_positions)
+
+        self.assertEqual(called_with_axes, ['x', 'y'])
+
+    def test_not_enough_data2(self):
+        called_with_axes = []
+
+        def derivative_of_forces(axis, particle_num, positions, skip_cache):
+            self.assertEqual(particle_num, 1)
+            np_test.assert_equal(positions, self.positions)
+            self.assertTrue(skip_cache)
+            called_with_axes.append(axis)
+            return fd.TripletForceDerivatives(
+                axis, 1, self.positions,
+                np.array([-4.15255934, -0.59297549, 3.86246549, 0.054379, 0.29008511, 0.53860772])
+            )
+
+        self.subject.triplet_fdc.derivative_of_forces = Mock(side_effect=derivative_of_forces)
+
+        rotation_matrix = np.array([
+            [np.sqrt(3) / 2, -0.5],
+            [0.5, np.sqrt(3) / 2]
+        ])
+        self.subject.derivatives.pop('x2')
+        self.subject.derivatives.pop('y2')
+
+        new_positions = np.array([[0., 0.], rotation_matrix.dot(self.p2), rotation_matrix.dot(self.p3)])
+        self.subject.calculate_rotated_derivatives('y', 3, new_positions)
+
+        self.assertEqual(called_with_axes, ['x', 'y'])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -110,7 +110,7 @@ class TripletForceDerivativeComputation(object):
         self.r = r
         self.derivative_func = derivative_func
 
-    def derivative_of_forces(self, axis, particle_num, positions):
+    def derivative_of_forces(self, axis, particle_num, positions, skip_cache=False):
         """
         Returns ForceDerivatives object with f1x, f1y, f2x, f2y, f3x, f3y derivatives
         Parameters:
@@ -119,9 +119,10 @@ class TripletForceDerivativeComputation(object):
         positions: ndarray of coordinates of 3 particles np.array([[x1, y1], [x2, y2], [x3, y3]])
         """
         axis = axis.lower()
-        cached = self.cache.read(axis, particle_num, positions)
-        if cached:
-            return cached
+        if not skip_cache:
+            cached = self.cache.read(axis, particle_num, positions)
+            if cached:
+                return cached
 
         axis_num = {'x': 0, 'y': 1, 'z': 2}[axis]
         var_positions = np.copy(positions)
@@ -164,6 +165,20 @@ class TripletDerivativeSet(object):
     def __particles_with_derivatives(self):
         return {i for i in range(3) if 'x' + str(i + 1) in self.derivatives}
 
+    def __ensure_have_derivatives_for(self, particle_num):
+        if 'x' + str(particle_num) not in self.derivatives:
+            self.add_derivatives(self.triplet_fdc.derivative_of_forces(
+                'x', particle_num, self.positions, skip_cache=True
+            ))
+        if 'y' + str(particle_num) not in self.derivatives:
+            self.add_derivatives(self.triplet_fdc.derivative_of_forces(
+                'y', particle_num, self.positions, skip_cache=True
+            ))
+
+    def __ensure_have_pair_for(self, particle_num):
+        if len(self.__particles_with_derivatives()) == 1:
+            self.__ensure_have_derivatives_for(particle_num % 3 + 1)  # 1 -> 2, 2 -> 3, 3 -> 1
+
     def add_derivatives(self, force_derivatives: TripletForceDerivatives):
         assert np.allclose(self.positions, force_derivatives.positions)
         variable = force_derivatives.axis + str(force_derivatives.particle_num)
@@ -188,6 +203,12 @@ class TripletDerivativeSet(object):
         particle_num = particle - 1
         particle_num = renum[particle_num]
 
+        self.__ensure_have_derivatives_for(particle_num + 1)
+        self.__ensure_have_pair_for(particle_num + 1)
+
+        pair_particle_num = (self.__particles_with_derivatives() - {particle_num}).pop()
+        spare_particle = ({0, 1, 2} - {particle_num, pair_particle_num}).pop()
+
         coord_num = {'x': 0, 'y': 1}[axis]
         pair_coord_num = {0: 1, 1: 0}[coord_num]
 
@@ -197,10 +218,7 @@ class TripletDerivativeSet(object):
         if new_sin_12 * old_sin_12 < 0:
             mirror[pair_coord_num, pair_coord_num] = -1.
         new_positions = np.tensordot(new_positions, mirror, axes=1)
-        old_positions = np.copy(self.positions)
-
-        pair_particle_num = (self.__particles_with_derivatives() - {particle_num}).pop()
-        spare_particle = ({0, 1, 2} - {particle_num, pair_particle_num}).pop()
+        old_positions = self.positions
 
         new_positions = shift_triangle(new_positions, -new_positions[spare_particle])
         old_positions = shift_triangle(old_positions, -old_positions[spare_particle])
