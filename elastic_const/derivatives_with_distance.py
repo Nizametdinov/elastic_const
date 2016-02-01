@@ -224,7 +224,7 @@ class Potential3DerivativesComputation(object):
             triplet.dΔF('m', X, 'm', Y),
             triplet.dΔF('m', Y, 'm', Y) + 2 * df3.dr12 + 2 * df3.dr23,
         ])
-        d2f3_dr12r12, d2f3_dr12r23, d2f3_dr23r23 = solve3x3(a, b)
+        d2f3_dr12r12, d2f3_dr12r23, d2f3_dr23r23 = np.linalg.solve(a, b)
 
         a = make_matrix(p3 - p1, p3 - p2)
         b = np.array([
@@ -232,7 +232,7 @@ class Potential3DerivativesComputation(object):
             triplet.dΔF('n', X, 'n', Y),
             triplet.dΔF('n', Y, 'n', Y) + 2 * df3.dr13 + 2 * df3.dr23,
         ])
-        d2f3_dr13r13, d2f3_dr13r23, d2f3_dr23r23 = solve3x3(a, b)
+        d2f3_dr13r13, d2f3_dr13r23, d2f3_dr23r23 = np.linalg.solve(a, b)
 
         d2f3_dr12r13 = triplet.dΔF('l', X, 'm', Y) - triplet.dΔF('l', Y, 'm', X)
         d2f3_dr12r13 += 4 * cross_product_2d(p2 - p1, p1 - p2) * d2f3_dr12r12
@@ -269,14 +269,3 @@ class Potential3DerivativesComputation(object):
             r12, r23, r13, d2f3_dr12r12, d2f3_dr12r23, d2f3_dr13r13, d2f3_dr13r23, d2f3_dr23r23, d2f3_dr12r13
         )
         return result
-
-
-def solve3x3(a, b):
-    delta = np.linalg.det(a)
-    assert not np.allclose(delta, 0.)
-    solution = [0, 0, 0]
-    for i in range(3):
-        tmp = np.copy(a)
-        tmp[:, i] = b
-        solution[i] = np.linalg.det(tmp) / delta
-    return solution
