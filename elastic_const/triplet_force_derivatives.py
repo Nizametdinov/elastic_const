@@ -2,7 +2,8 @@ from scipy.misc import derivative
 from os import path
 from elastic_const.cache_base import CacheBase
 from elastic_const.misc import format_float, euclidean_distance, pairwise_distances, cross_product_2d, shift_triangle, \
-    renumbering, reverse_renumbering, apply_renumbering, pairs
+    pairs
+from elastic_const.renumbering import Renumbering
 import numpy as np
 import logging
 
@@ -185,23 +186,22 @@ class TripletDerivativeSet(object):
         self.derivatives[variable] = force_derivatives
 
     def calculate_rotated_derivatives(self, axis, particle, positions):
-        renum = renumbering(self.positions, positions)
-        reverse_renum = reverse_renumbering(renum)
-        new_positions = apply_renumbering(renum, positions)
+        renum = Renumbering(positions, self.positions)
+        new_positions = renum.apply_to(positions)
         # TODO: think about renumbering for isosceles triangle
 
         if np.allclose(self.positions, new_positions):
-            variable = axis + str(renum[particle - 1] + 1)
+            variable = axis + str(renum.apply_to_index(particle - 1) + 1)
             derivatives = self.derivatives.get(variable, None)
             if derivatives is None:
                 return None
-            derivatives = apply_renumbering(reverse_renum, list(pairs(derivatives.derivatives)))
+            derivatives = renum.apply_reverse_to(list(pairs(derivatives.derivatives)))
             return TripletForceDerivatives(
                 axis, particle, positions, np.array(derivatives).flatten()
             )
 
         particle_num = particle - 1
-        particle_num = renum[particle_num]
+        particle_num = renum.apply_to_index(particle_num)
 
         self.__ensure_have_derivatives_for(particle_num + 1)
         self.__ensure_have_pair_for(particle_num + 1)
@@ -264,7 +264,7 @@ class TripletDerivativeSet(object):
             df0i = np.tensordot(deriv_matrix, dp0, axes=([0, 1], [0, 1]))
             dfs.append(mirror.dot(transform_matrix.dot(df0i) + d_transform.dot(f0i)))
 
-        dfs = apply_renumbering(reverse_renum, dfs)
+        dfs = renum.apply_reverse_to(dfs)
         return TripletForceDerivatives(
             axis, particle, positions,
             np.array([dfs[0][0], dfs[0][1], dfs[1][0], dfs[1][1], dfs[2][0], dfs[2][1]])
