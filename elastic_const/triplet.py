@@ -18,7 +18,7 @@ class Triplet(object):
         r_m = math.sqrt(m[0] * m[0] + m[1] * m[1])
         r_n = math.sqrt(n[0] * n[0] + n[1] * n[1])
         r_mn = math.sqrt((m[0] - n[0]) ** 2 + (m[1] - n[1]) ** 2)
-        self.r = {'ml': r_m, 'nl': r_n, 'mn': r_mn, 'nm': r_mn}
+        self.r = {'ml': r_m, 'nl': r_n, 'lm': r_m, 'ln': r_n, 'mn': r_mn, 'nm': r_mn}
 
         self.pair_forces = {}
         self.pair_force_derivatives = {}
