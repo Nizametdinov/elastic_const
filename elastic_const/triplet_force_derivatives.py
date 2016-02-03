@@ -1,8 +1,7 @@
 from scipy.misc import derivative
 from os import path
 from elastic_const.cache_base import CacheBase
-from elastic_const.misc import format_float, euclidean_distance, pairwise_distances, cross_product_2d, shift_triangle, \
-    pairs
+from elastic_const.misc import format_float, euclidean_distance, pairwise_distances, cross_product_2d, shift_triangle
 from elastic_const.renumbering import Renumbering
 import numpy as np
 import logging
@@ -26,12 +25,10 @@ class TripletForceDerivatives(object):
         particle_num: 1, 2, 3
         axis: 'x', 'y' or None
         """
-        variable_num = (particle_num - 1) * 2
         if axis is None:
-            return np.array(self.derivatives[variable_num:variable_num+2])
-        if axis.lower() == 'y':
-            variable_num += 1
-        return self.derivatives[variable_num]
+            return np.array(self.derivatives[particle_num - 1])
+        coord_num = {'x': 0, 'y': 1, 'z': 2}[axis.lower()]
+        return self.derivatives[particle_num - 1][coord_num]
 
     def __eq__(self, other):
         if not isinstance(other, TripletForceDerivatives):
@@ -49,7 +46,7 @@ class TripletForceDerivatives(object):
 
     def to_string(self):
         return '{0}{1} '.format(self.axis, self.particle_num) + ' '.join(
-            map(format_float, list(self.positions.flatten()) + list(self.derivatives))
+            map(format_float, list(self.positions.flatten()) + list(self.derivatives.flatten()))
         )
 
     @classmethod
@@ -58,7 +55,9 @@ class TripletForceDerivatives(object):
         parsed = list(map(float, numbers))
         positions = np.array(parsed[0:6])
         positions.shape = (3, 2)  # FIXME: not 3D ready
-        return cls(variable[0], int(variable[1]), positions, parsed[6:])
+        forces = np.array(parsed[6:])
+        forces.shape = (3, 2)
+        return cls(variable[0], int(variable[1]), positions, forces)
 
 
 class TripletForceDerivativeCache(CacheBase):
@@ -195,9 +194,9 @@ class TripletDerivativeSet(object):
             derivatives = self.derivatives.get(variable, None)
             if derivatives is None:
                 return None
-            derivatives = renum.apply_reverse_to(list(pairs(derivatives.derivatives)))
+            derivatives = renum.apply_reverse_to(derivatives.derivatives)
             return TripletForceDerivatives(
-                axis, particle, positions, np.array(derivatives).flatten()
+                axis, particle, positions, np.array(derivatives)
             )
 
         particle_num = particle - 1
@@ -265,7 +264,4 @@ class TripletDerivativeSet(object):
             dfs.append(mirror.dot(transform_matrix.dot(df0i) + d_transform.dot(f0i)))
 
         dfs = renum.apply_reverse_to(dfs)
-        return TripletForceDerivatives(
-            axis, particle, positions,
-            np.array([dfs[0][0], dfs[0][1], dfs[1][0], dfs[1][1], dfs[2][0], dfs[2][1]])
-        )
+        return TripletForceDerivatives(axis, particle, positions, np.array(dfs))

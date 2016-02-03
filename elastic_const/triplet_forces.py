@@ -21,9 +21,9 @@ class TripletForces(object):
         else:
             self.positions = np.array(list(pairs(positions)))
         if isinstance(forces[0], np.ndarray):
-            self.forces = list(np.array(forces).flatten())
+            self.forces = np.copy(np.array(forces))
         else:
-            self.forces = list(forces)
+            self.forces = np.array(list(pairs(forces)))
         self.distances = sorted(pairwise_distances(self.positions))
 
     def force(self, particle_num, axis=None):
@@ -34,12 +34,10 @@ class TripletForces(object):
         particle_num: 1, 2, 3
         axis: 'x', 'y' or None
         """
-        variable_num = (particle_num - 1) * 2
         if not axis:
-            return np.array(self.forces[variable_num:variable_num + 2])
-        if axis.lower() == 'y':
-            variable_num += 1
-        return self.forces[variable_num]
+            return self.forces[particle_num - 1]
+        coord_num = {'x': 0, 'y': 1, 'z': 2}[axis.lower()]
+        return self.forces[particle_num - 1][coord_num]
 
     def __eq__(self, other):
         if not isinstance(other, TripletForces):
@@ -51,6 +49,9 @@ class TripletForces(object):
 
     def flat_positions(self):
         return self.positions.flatten()
+
+    def flat_forces(self):
+        return self.forces.flatten()
 
     def have_coords(self, positions):
         return np.allclose(self.positions, positions)
@@ -66,15 +67,14 @@ class TripletForces(object):
         assert np.allclose(shifted_points, denormalized_positions), \
             '{0} != {1}'.format(shifted_points, denormalized_positions)
 
-        denormalized_forces = [inverse_transform.dot(f) for f in pairs(self.forces)]
+        denormalized_forces = [inverse_transform.dot(f) for f in self.forces]
         forces = [None] * 3
         for i, force in zip(indices, denormalized_forces):
             forces[i] = force
-        return TripletForces(positions, forces)
+        return TripletForces(positions, np.array(forces))
 
     def normalized(self):
-        force_vecs = list(pairs(self.forces))
-        points = list(zip(self.positions, force_vecs))
+        points = list(zip(self.positions, self.forces))
         # renumber
         ordered = order_points_by_distance(points, lambda p1, p2: euclidean_distance(p1[0], p2[0]))
         ordered_forces = [f for _, f in ordered]
@@ -83,12 +83,12 @@ class TripletForces(object):
         # rotate and mirror particles
         transform, _ = normalization_transform(points)
         normalized_points = np.array([transform.dot(p) for p in points])
-        normalized_forces = [transform.dot(f) for f in ordered_forces]
+        normalized_forces = np.array([transform.dot(f) for f in ordered_forces])
         return TripletForces(normalized_points, normalized_forces)
 
     def to_string(self):
         return ' '.join(
-            map(format_float, np.concatenate((self.flat_positions(), self.forces)))
+            map(format_float, np.concatenate((self.flat_positions(), self.flat_forces())))
         )
 
     @classmethod

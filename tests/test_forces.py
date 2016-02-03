@@ -113,14 +113,14 @@ class TestTripletForceCache(unittest.TestCase):
     def test_restore_cache(self):
         normalized_force = fs.TripletForces(
             np.array([[0.0, 0.0], [1.0, 0.1], [1.0, 0.0]]),
-            [-0.1707, -0.01507, -1.9323, -0.53, 0.1, 0.2]
+            np.array([[-0.1707, -0.01507], [-1.9323, -0.53], [0.1, 0.2]])
         ).normalized()
         self.assertEqual(len(self.subject.values), 2)
         np_test.assert_equal(
             self.subject.values[0].positions,
             normalized_force.positions
         )
-        self.assertEqual(
+        np_test.assert_equal(
             self.subject.values[0].forces,
             normalized_force.forces
         )
@@ -137,15 +137,15 @@ class TestTripletForceCache(unittest.TestCase):
 
     def test_read(self):
         cached = self.subject.read(np.array([[0.0, 0.0], [1.0, 0.1], [1.0, 0.0]]))
-        np_test.assert_equal(cached.positions, [np.array([0.0, 0.0]), np.array([1.0, 0.1]), np.array([1.0, 0.0])])
-        self.assertEqual(cached.forces, [-0.1707, -0.01507, -1.9323, -0.53, 0.1, 0.2])
+        np_test.assert_equal(cached.positions, [[0.0, 0.0], [1.0, 0.1], [1.0, 0.0]])
+        np_test.assert_equal(cached.forces, [[-0.1707, -0.01507], [-1.9323, -0.53], [0.1, 0.2]])
 
         forces = fs.TripletForces([1, 1, 2, 3, 4, 5], [1.1, 2, 3, 4, 5, 6.1])
         self.subject.save_result(forces)
         cached = self.subject.read(np.array([[1, 1], [2, 3], [4, 5]]))
         self.assertEqual(cached, forces)
 
-        # compares float with tolerance
+        # it compares float with tolerance
         cached = self.subject.read(np.array([[1, 0.7 + 0.2 + 0.1], [2, (0.1 + 0.2) * 10], [4, 5]]))
         self.assertEqual(cached, forces)
 
@@ -155,8 +155,8 @@ class TestTripletForceCache(unittest.TestCase):
 
         cached = self.subject.read(np.array([[0, 0], [2, 1], [0, 2]]))
         self.assertIsNotNone(cached)
-        np_test.assert_equal(cached.positions, np.array([[0, 0], [2, 1], [0, 2]]))
-        self.assertEqual(cached.forces, [-0.5, -1, 1., 0., -0.5, 1.])
+        np_test.assert_equal(cached.positions, [[0, 0], [2, 1], [0, 2]])
+        np_test.assert_equal(cached.forces, [[-0.5, -1], [1., 0.], [-0.5, 1.]])
 
     def test_read_with_shift(self):
         forces = fs.TripletForces([0, 0, 4, 0, 4, 3], [1, 2, 3, 4, 5, 6])
@@ -164,8 +164,8 @@ class TestTripletForceCache(unittest.TestCase):
 
         cached = self.subject.read(np.array([[0, 0], [0, 3], [-4, 0]]))
         self.assertIsNotNone(cached)
-        np_test.assert_equal(cached.positions, np.array([[0, 0], [0, 3], [-4, 0]]))
-        self.assertEqual(cached.forces, [3, 4, 5, 6, 1, 2])
+        np_test.assert_equal(cached.positions, [[0, 0], [0, 3], [-4, 0]])
+        np_test.assert_equal(cached.forces, [[3, 4], [5, 6], [1, 2]])
 
     def test_read_with_rotation(self):
         forces = fs.TripletForces([0, 0, 4, 0, 4, 3], [1, 2, 3, 4, 5, 6])
@@ -173,8 +173,8 @@ class TestTripletForceCache(unittest.TestCase):
 
         cached = self.subject.read(np.array([[0, 0], [0, 4], [-3, 4]]))
         self.assertIsNotNone(cached)
-        np_test.assert_equal(cached.positions, np.array([[0, 0], [0, 4], [-3, 4]]))
-        self.assertEqual(cached.forces, [-2, 1, -4, 3, -6, 5])
+        np_test.assert_equal(cached.positions, [[0, 0], [0, 4], [-3, 4]])
+        np_test.assert_equal(cached.forces, [[-2, 1], [-4, 3], [-6, 5]])
 
     def test_read_with_rotation_and_mirror(self):
         forces = fs.TripletForces(np.array([[0, 0], [0, 1], [-2, 1]]), [0.3, -1.2, 0.5, 1., -0.8, 0.2])
@@ -182,8 +182,8 @@ class TestTripletForceCache(unittest.TestCase):
 
         cached = self.subject.read(np.array([[0, 0], [-1, 0], [-1, 2]]))
         self.assertIsNotNone(cached)
-        np_test.assert_equal(cached.positions, np.array([[0, 0], [-1, 0], [-1, 2]]))
-        self.assertEqual(cached.forces, [1.2, -0.3, -1., -0.5, -0.2, 0.8])
+        np_test.assert_equal(cached.positions, [[0, 0], [-1, 0], [-1, 2]])
+        np_test.assert_equal(cached.forces, [[1.2, -0.3], [-1., -0.5], [-0.2, 0.8]])
 
     def test_small_shifts(self):
         forces = fs.TripletForces(np.array([[0, 0], [-2.3, 0.], [-4.6, 0]]), [0.3, 0., 0., 0., 0., 0.2])
