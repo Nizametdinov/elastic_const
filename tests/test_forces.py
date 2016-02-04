@@ -63,15 +63,15 @@ class TestTripletFemSimulation(unittest.TestCase):
         self.assertIn('y3 = 5', conf)
 
     def test_caches_computed_forces(self):
-        computed = self.subject.compute_forces(np.array([[0, 1], [2, 3], [4, 5]]))
-        cached = self.subject.cache.read(np.array([[0, 1], [2, 3], [4, 5]]))
+        computed = self.subject.compute_forces(np.array([[0, 0], [2, 3], [4, 5]]))
+        cached = self.subject.cache.read(np.array([[0, 0], [2, 3], [4, 5]]))
         self.assertEqual(cached, computed)
 
     def test_reads_cached_value(self):
-        cached = fs.TripletForces(np.array([[0, 1], [2, 3], [4, 5]]), [1.1, 2, 3, 4, 5, 6.1])
+        cached = fs.TripletForces(np.array([[0, 0], [2, 3], [4, 5]]), [1.1, 2, 3, 4, 5, 6.1])
         self.subject.cache.save_result(cached)
 
-        computed = self.subject.compute_forces(np.array([[0, 1], [2, 3], [4, 5]]))
+        computed = self.subject.compute_forces(np.array([[0, 0], [2, 3], [4, 5]]))
         self.assertEqual(cached, computed)
 
     def test_plan_generation(self):
@@ -111,18 +111,14 @@ class TestTripletForceCache(unittest.TestCase):
         self.subject = fs.TripletForceCache(None, cache_file=self.cache_file)
 
     def test_restore_cache(self):
-        normalized_force = fs.TripletForces(
-            np.array([[0.0, 0.0], [1.0, 0.1], [1.0, 0.0]]),
-            np.array([[-0.1707, -0.01507], [-1.9323, -0.53], [0.1, 0.2]])
-        ).normalized()
         self.assertEqual(len(self.subject.values), 2)
         np_test.assert_equal(
             self.subject.values[0].positions,
-            normalized_force.positions
+            [[0.0, 0.0], [1.0, 0.1], [1.0, 0.0]]
         )
         np_test.assert_equal(
             self.subject.values[0].forces,
-            normalized_force.forces
+            [[-0.1707, -0.01507], [-1.9323, -0.53], [0.1, 0.2]]
         )
 
     def test_save_result(self):
@@ -140,13 +136,13 @@ class TestTripletForceCache(unittest.TestCase):
         np_test.assert_equal(cached.positions, [[0.0, 0.0], [1.0, 0.1], [1.0, 0.0]])
         np_test.assert_equal(cached.forces, [[-0.1707, -0.01507], [-1.9323, -0.53], [0.1, 0.2]])
 
-        forces = fs.TripletForces([1, 1, 2, 3, 4, 5], [1.1, 2, 3, 4, 5, 6.1])
+        forces = fs.TripletForces([0, 0, 1, 2, 3, 4], [1.1, 2, 3, 4, 5, 6.1])
         self.subject.save_result(forces)
-        cached = self.subject.read(np.array([[1, 1], [2, 3], [4, 5]]))
+        cached = self.subject.read(np.array([[0, 0], [1, 2], [3, 4]]))
         self.assertEqual(cached, forces)
 
         # it compares float with tolerance
-        cached = self.subject.read(np.array([[1, 0.7 + 0.2 + 0.1], [2, (0.1 + 0.2) * 10], [4, 5]]))
+        cached = self.subject.read(np.array([[0., 0.], [0.7 + 0.2 + 0.1, 2], [(0.1 + 0.2) * 10, 4]]))
         self.assertEqual(cached, forces)
 
     def test_read_with_xy_symmetry(self):
@@ -156,7 +152,7 @@ class TestTripletForceCache(unittest.TestCase):
         cached = self.subject.read(np.array([[0, 0], [2, 1], [0, 2]]))
         self.assertIsNotNone(cached)
         np_test.assert_equal(cached.positions, [[0, 0], [2, 1], [0, 2]])
-        np_test.assert_equal(cached.forces, [[-0.5, -1], [1., 0.], [-0.5, 1.]])
+        np_test.assert_allclose(cached.forces, [[-0.5, -1], [1., 0.], [-0.5, 1.]])
 
     def test_read_with_shift(self):
         forces = fs.TripletForces([0, 0, 4, 0, 4, 3], [1, 2, 3, 4, 5, 6])

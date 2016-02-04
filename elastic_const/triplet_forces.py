@@ -1,17 +1,27 @@
-from elastic_const.misc import format_float, order_points_by_distance, euclidean_distance, pairwise_distances, pairs
 import numpy as np
 
+from elastic_const.misc import format_float, pairwise_distances, pairs, \
+    cross_product_2d, shift_triangle, apply_transform_to_list_of_vectors
+from elastic_const.renumbering import Renumbering
 
-def normalization_transform(triangle):
-    norm_1 = np.linalg.norm(triangle[1])
-    cos_a = triangle[1][0] / norm_1
-    sin_a = triangle[1][1] / norm_1
-    transform = np.array([[cos_a, sin_a], [-sin_a, cos_a]])
-    inverse = np.array([[cos_a, -sin_a], [sin_a, cos_a]])
-    if transform[1].dot(triangle[2]) < 0:
-        transform[1] = -transform[1]
-        inverse[:, 1] = -inverse[:, 1]
-    return transform, inverse
+
+def _mirror_is_required(old_positions, new_positions):
+    """This function checks whether pairs of vectors formed by sides of triangles have the same handedness"""
+    new_sin_12 = cross_product_2d(new_positions[1] - new_positions[0], new_positions[2] - new_positions[0])
+    old_sin_12 = cross_product_2d(old_positions[1] - old_positions[0], old_positions[2] - old_positions[0])
+    return new_sin_12 * old_sin_12 < 0
+
+
+def _rotation_matrix(from_triangle, to_triangle):
+    # from_triangle[0] and to_triangle[0] must equal to [0, 0]
+    particle_num = 1
+    r = np.linalg.norm(to_triangle[particle_num])
+    cos_theta = to_triangle[particle_num].dot(from_triangle[particle_num]) / (r * r)
+    sin_theta = cross_product_2d(from_triangle[particle_num], to_triangle[particle_num]) / (r * r)
+    return np.array([
+        [cos_theta, -sin_theta],
+        [sin_theta, cos_theta]
+    ])
 
 
 class TripletForces(object):
@@ -56,35 +66,32 @@ class TripletForces(object):
     def have_coords(self, positions):
         return np.allclose(self.positions, positions)
 
-    def change_positions(self, positions):
-        nodes = list(enumerate(positions))
-        ordered = order_points_by_distance(nodes, lambda p1, p2: euclidean_distance(p1[1], p2[1]))
-        indices = [i for i, _ in ordered]
-        shifted_points = [p - ordered[0][1] for _, p in ordered]
-        _, inverse_transform = normalization_transform(shifted_points)
+    def change_positions(self, new_positions):
+        # renumber and shift
+        renum = Renumbering(self.positions, new_positions)
+        old_positions = renum.apply_to(self.positions)
+        old_positions = shift_triangle(old_positions, -old_positions[0])
+        old_forces = renum.apply_to(self.forces)
 
-        denormalized_positions = [inverse_transform.dot(p) for p in self.positions]
-        assert np.allclose(shifted_points, denormalized_positions), \
-            '{0} != {1}'.format(shifted_points, denormalized_positions)
+        if np.allclose(new_positions, old_positions):
+            return TripletForces(new_positions, old_forces)
 
-        denormalized_forces = [inverse_transform.dot(f) for f in self.forces]
-        forces = [None] * 3
-        for i, force in zip(indices, denormalized_forces):
-            forces[i] = force
-        return TripletForces(positions, np.array(forces))
+        assert np.allclose(new_positions[0], [0., 0.])
 
-    def normalized(self):
-        points = list(zip(self.positions, self.forces))
-        # renumber
-        ordered = order_points_by_distance(points, lambda p1, p2: euclidean_distance(p1[0], p2[0]))
-        ordered_forces = [f for _, f in ordered]
-        # use first particle as origin
-        points = [p - ordered[0][0] for p, _ in ordered]
-        # rotate and mirror particles
-        transform, _ = normalization_transform(points)
-        normalized_points = np.array([transform.dot(p) for p in points])
-        normalized_forces = np.array([transform.dot(f) for f in ordered_forces])
-        return TripletForces(normalized_points, normalized_forces)
+        # mirror
+        if _mirror_is_required(old_positions, new_positions):
+            mirror = np.array([[1., 0.], [0., -1.]])
+            old_positions = apply_transform_to_list_of_vectors(mirror, old_positions)
+            old_forces = apply_transform_to_list_of_vectors(mirror, old_forces)
+
+        # rotate
+        transform_matrix = _rotation_matrix(old_positions, new_positions)
+
+        transformed_positions = apply_transform_to_list_of_vectors(transform_matrix, old_positions)
+        assert np.allclose(new_positions, transformed_positions), \
+            '{0} != {1}'.format(new_positions, transformed_positions)
+
+        return TripletForces(new_positions, apply_transform_to_list_of_vectors(transform_matrix, old_forces))
 
     def to_string(self):
         return ' '.join(

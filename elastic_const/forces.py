@@ -68,10 +68,7 @@ class TripletForceCache(CacheBase):
         super().__init__(cache_file_path)
 
     def _value_from_string(self, string):
-        return TripletForces.from_string(string).normalized()
-
-    def save_result(self, value):
-        super().save_result(value.normalized())
+        return TripletForces.from_string(string)
 
     def read(self, positions):
         distances = sorted(pairwise_distances(positions))

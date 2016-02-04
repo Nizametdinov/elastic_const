@@ -43,3 +43,7 @@ def cross_product_2d(v1, v2):
 
 def shift_triangle(positions, shift):
     return np.array([p + shift for p in positions])
+
+
+def apply_transform_to_list_of_vectors(transform_matrix, vectors):
+    return np.tensordot(vectors, transform_matrix, axes=(1, 1))
