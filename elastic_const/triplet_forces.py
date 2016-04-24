@@ -72,24 +72,23 @@ class TripletForces(object):
         old_positions = renum.apply_to(self.positions)
         old_positions = shift_triangle(old_positions, -old_positions[0])
         old_forces = renum.apply_to(self.forces)
+        shifted_new_positions = shift_triangle(new_positions, -new_positions[0])
 
-        if np.allclose(new_positions, old_positions):
+        if np.allclose(shifted_new_positions, old_positions):
             return TripletForces(new_positions, old_forces)
 
-        assert np.allclose(new_positions[0], [0., 0.])
-
         # mirror
-        if _mirror_is_required(old_positions, new_positions):
+        if _mirror_is_required(old_positions, shifted_new_positions):
             mirror = np.array([[1., 0.], [0., -1.]])
             old_positions = apply_transform_to_list_of_vectors(mirror, old_positions)
             old_forces = apply_transform_to_list_of_vectors(mirror, old_forces)
 
         # rotate
-        transform_matrix = _rotation_matrix(old_positions, new_positions)
+        transform_matrix = _rotation_matrix(old_positions, shifted_new_positions)
 
         transformed_positions = apply_transform_to_list_of_vectors(transform_matrix, old_positions)
-        assert np.allclose(new_positions, transformed_positions), \
-            '{0} != {1}'.format(new_positions, transformed_positions)
+        assert np.allclose(shifted_new_positions, transformed_positions), \
+            '{0} != {1}'.format(shifted_new_positions, transformed_positions)
 
         return TripletForces(new_positions, apply_transform_to_list_of_vectors(transform_matrix, old_forces))
 

@@ -83,6 +83,16 @@ class TestTripletForces(unittest.TestCase):
             [transform.dot(force_list[2]), transform.dot(force_list[1]), transform.dot(force_list[0])]
         )
 
+    def test_change_positions__non_zero_origin(self):
+        forces = TripletForces(
+            np.array([[0., 0.05], [-3., 0.], [0., -3.]]),
+            np.array([[2.530714, 2.672007], [-2.882504, 0.3963235], [0.3517901, -3.068331]])
+        )
+        np_test.assert_allclose(
+            forces.change_positions(np.array([[0.05, 0.], [0., 3.], [-3., 0.]])).forces,  # rotation -pi/2
+            [[2.672007, -2.530714], [0.3963235, 2.882504], [-3.068331, -0.3517901]]
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
