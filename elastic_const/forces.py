@@ -54,7 +54,8 @@ class PairForce(namedtuple('PairForce', ['distance', 'force'])):
         return self.distance == other.distance and self.force == other.force
 
     def rotate(self, to, origin):
-        assert np.allclose((to[0] - origin[0]) ** 2 + (to[1] - origin[1]) ** 2, self.distance ** 2)
+        assert np.allclose((to[0] - origin[0]) ** 2 + (to[1] - origin[1]) ** 2, self.distance ** 2, rtol=1e-4), \
+            "{0} != {1}".format((to[0] - origin[0]) ** 2 + (to[1] - origin[1]) ** 2, self.distance ** 2)
         force_x = self.force * (to[0] - origin[0]) / self.distance
         force_y = self.force * (to[1] - origin[1]) / self.distance
         return force_x, force_y
@@ -139,6 +140,8 @@ class FemSimulation(object):
             print(self._format_args_for_plan(*args), file=self.plan_file)
             result = self._dummy_result(*args)
         else:
+            if not self.command:
+                raise RuntimeError("Execute called with args {0}".format(args))
             self._create_config_file(*args)
             match = self.__execute()
             if not match:

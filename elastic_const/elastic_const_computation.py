@@ -1,6 +1,7 @@
 import logging
 import traceback
 import math
+import itertools
 
 import numpy as np
 
@@ -11,18 +12,34 @@ from elastic_const.derivatives_with_distance import Potential2, Potential3
 
 
 def hexagonal_lattice(a, max_order):
-    orders = [1, math.sqrt(3), 2, math.sqrt(7), 3, 2 * math.sqrt(3), math.sqrt(13), 4]
-    grid_vec1 = np.array([1., 0])
-    grid_vec2 = np.array([1./2, math.sqrt(3)/2])
-    return pairs_and_triplets_for_lattice(a, max_order, orders, grid_vec1, grid_vec2)
+    orders = [1, math.sqrt(3), 2, math.sqrt(7), 3, 2 * math.sqrt(3), math.sqrt(13), 4, math.sqrt(19), math.sqrt(21), 5]
+    assert max_order < len(orders)
+    grid_vectors = np.array([
+        [1., 0],
+        [1. / 2, math.sqrt(3) / 2]
+    ])
+    return pairs_and_triplets_for_lattice(a, max_order, orders, grid_vectors)
 
 
 def quadratic_lattice(a, max_order):
-    orders = [1, math.sqrt(2), 2, math.sqrt(5), 2 * math.sqrt(2), 3]
-    grid_vec1 = np.array([1., 0])
-    grid_vec2 = np.array([0., 1.])
-    return pairs_and_triplets_for_lattice(a, max_order, orders, grid_vec1, grid_vec2)
+    orders = [1, math.sqrt(2), 2, math.sqrt(5), 2 * math.sqrt(2), 3, math.sqrt(10), math.sqrt(13), 4, math.sqrt(17)]
+    assert max_order < len(orders)
+    grid_vectors = np.array([
+        [1., 0],
+        [0., 1.]
+    ])
+    return pairs_and_triplets_for_lattice(a, max_order, orders, grid_vectors)
 
+
+def primitive_qubic_lattice(a, max_order):
+    orders = [1, math.sqrt(2), math.sqrt(3), 2, math.sqrt(5), math.sqrt(6), 2 * math.sqrt(2), 3, math.sqrt(10)]
+    assert max_order < len(orders)
+    grid_vectors = np.array([
+        [1., 0., 0.],
+        [0., 1., 0.],
+        [0., 0., 1.]
+    ])
+    return pairs_and_triplets_for_lattice(a, max_order, orders, grid_vectors)
 
 def compute_constants_xy_method(a, max_order, triplet_fem, pair_fem, triplet_fdc, pair_fdc, lattice_func=quadratic_lattice):
     def pair_const_func(particles, v0):
@@ -87,19 +104,21 @@ def compute_constants_v2(a, max_order, pair_const_func, triplet_const_func, latt
         raise
 
 
-def pairs_and_triplets_for_lattice(a, max_order, orders, grid_vec1, grid_vec2):
+def pairs_and_triplets_for_lattice(a, max_order, orders, grid_vectors: np.ndarray):
+    def order_of(distance):
+        return next((i for i, dist in enumerate(orders) if np.allclose(dist, distance)), None)
+
     i_max = int(np.ceil(orders[max_order]))
     i_min = -i_max
     particles_by_order = [[] for _ in range(max_order)]
-    for i in range(i_min, i_max + 1):
-        for j in range(i_min, i_max + 1):
-            if i == 0 and j == 0:
-                continue
-            particle = i * grid_vec1 + j * grid_vec2
-            length = np.linalg.norm(particle)
-            order = next((i for i, dist in enumerate(orders) if np.allclose(dist, length)), None)
-            if order is not None and order < max_order:
-                particles_by_order[order].append(particle)
+    for coefficients in itertools.product(range(i_min, i_max + 1), repeat=grid_vectors.shape[0]):
+        if all(i == 0 for i in coefficients):
+            continue
+        particle = sum(i * v for i, v in zip(coefficients, grid_vectors))
+        distance = np.linalg.norm(particle)
+        order = order_of(distance)
+        if order is not None and order < max_order:
+            particles_by_order[order].append(particle)
 
     pairs_by_order = [[] for _ in range(max_order)]
     for i in range(max_order):
@@ -108,8 +127,8 @@ def pairs_and_triplets_for_lattice(a, max_order, orders, grid_vec1, grid_vec2):
                 for p2 in particles_by_order[j]:
                     if i == j and list(p1) >= list(p2):
                         continue
-                    max_dist = max(pairwise_distances([np.array([0, 0]), np.array(p1), np.array(p2)]))
-                    order = next((i for i, dist in enumerate(orders) if np.allclose(dist, max_dist)), None)
+                    max_distance = max(pairwise_distances([np.zeros_like(p1), p1, p2]))
+                    order = order_of(max_distance)
                     if order is not None and order < max_order:
                         pairs_by_order[order].append((a * p1, a * p2))
 

@@ -83,6 +83,52 @@ class GridTest(unittest.TestCase):
         self.assertEqual(len(triplets[2]), 18)
         self.assertEqual(len(triplets[3]), 72)
 
+    def test_primitive_cubic_lattice(self):
+        expected_first_order_pairs = [
+            np.array([3., 0., 0.]),
+            np.array([-3., 0., 0.]),
+            np.array([0., 3., 0.]),
+            np.array([0., -3., 0.]),
+            np.array([0., 0., 3.]),
+            np.array([0., 0., -3.])
+        ]
+        expected_second_order_pairs = [
+            np.array([3., 3., 0.]),
+            np.array([3., -3., 0.]),
+            np.array([-3., 3., 0.]),
+            np.array([-3., -3., 0.]),
+            np.array([3., 0., 3.]),
+            np.array([3., 0., -3.]),
+            np.array([-3., 0., 3.]),
+            np.array([-3., 0., -3.]),
+            np.array([0., 3., 3.]),
+            np.array([0., 3., -3.]),
+            np.array([0., -3., 3.]),
+            np.array([0., -3., -3.])
+        ]
+        expected_fourth_order_pairs = [
+            np.array([6., 0., 0.]),
+            np.array([-6., 0., 0.]),
+            np.array([0., 6., 0.]),
+            np.array([0., -6., 0.]),
+            np.array([0., 0., 6.]),
+            np.array([0., 0., -6.])
+        ]
+
+        pairs, triplets = ecc.primitive_qubic_lattice(3., 4)
+
+        self.assertEqual(len(pairs), 4)
+        self.assertEqual(len(triplets), 4)
+        self.assert_contain_same_points(pairs[0], expected_first_order_pairs)
+        self.assert_contain_same_points(pairs[1], expected_second_order_pairs)
+        self.assertEqual(len(pairs[2]), 8)
+        self.assert_contain_same_points(pairs[3], expected_fourth_order_pairs)
+
+        self.assertEqual(triplets[0], [])
+        self.assertEqual(len(triplets[1]), 60)
+        self.assertEqual(len(triplets[2]), 72)
+        self.assertEqual(len(triplets[3]), 81)
+
     def tearDown(self):
         pass
 

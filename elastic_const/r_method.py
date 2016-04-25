@@ -31,7 +31,7 @@ def three_body_constants(pairs, v0, potential3_func):
     tri_c1212 = 0
     for m, n in pairs:
         print('m =', m, '; n =', n)
-        r12, r23, r13 = pairwise_distances([np.array([0, 0]), m, n])
+        r12, r23, r13 = pairwise_distances([np.zeros_like(m), m, n])
         f3 = potential3_func(r12, r23, r13)
         logging.debug('m = {m}; n = {n}'.format(m=m, n=n))
         logging.debug(f3.first_derivatives())
