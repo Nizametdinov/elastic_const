@@ -16,10 +16,10 @@ FLOAT_NUM_PATTERN = '(-?\d+\.\d+(?:e[+-]\d+)?)\s+'
 FORCES_PATTERN = '(?P<f{0}x>-?\d+\.\d+(?:e[+-]\d+)?)\s+(?P<f{0}y>-?\d+\.\d+(?:e[+-]\d+)?)\s+'
 RESULT_PATTERN = ('^\s*' + FLOAT_NUM_PATTERN * 9 +
                   ''.join(FORCES_PATTERN.format(i) + FLOAT_NUM_PATTERN for i in range(1, 4)) +
-                  FLOAT_NUM_PATTERN * 2 + '(-?\d+\.\d+(?:e[+-]\d+)?)\s*')
+                  FLOAT_NUM_PATTERN * 2 + '(?P<en>-?\d+\.\d+(?:e[+-]\d+)?)\s*')
 
 PAIR_RESULT_PATTERN = ('^\s*' + FLOAT_NUM_PATTERN + '(?P<f>-?\d+\.\d+(?:e[+-]\d+)?)\s' +
-                       FLOAT_NUM_PATTERN * 2 + '(-?\d+\.\d+(?:e[+-]\d+)?)\s*')
+                       FLOAT_NUM_PATTERN * 2 + '(?P<en>-?\d+\.\d+(?:e[+-]\d+)?)\s*')
 
 TRIPLET_CONFIG_FILE = 'triplet_config.txt'
 PAIR_CONFIG_FILE = 'pair_config.txt'
@@ -124,7 +124,13 @@ class FemSimulation(object):
         for line in stdout.decode(PROC_ENCODING).splitlines():
             match = self.pattern.match(line)
             if match:
+                logging.debug('FEM output matching line: {0}'.format(line))
                 return match
+
+        logging.error('No matching line found in FEM output')
+        logging.error('FEM simulation stdout: {0}'.format(stdout.decode(PROC_ENCODING)))
+        if stderr is not None:
+            logging.error('FEM simulation stderr: {0}'.format(stderr.decode(PROC_ENCODING)))
         return None
 
     def _create_config_file(self, *args):
