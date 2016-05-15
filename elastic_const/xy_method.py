@@ -100,8 +100,9 @@ def three_body_constants(pairs, v0, fem, pair_fem, fdc, pair_fdc):
         tri_c1111 += c_αβστ_mn(conf, 1, 1, 1, 1)
         tri_c1122 += c_αβστ_mn(conf, 1, 1, 2, 2)
         tri_c1212 += c_αβστ_mn(conf, 1, 2, 1, 2)
-        if math.fabs(tri_c1212) > math.fabs(tri_c1122):
-            print('WARNING m =', m, 'n =', n, '1212 =', tri_c1212, '1122 =', tri_c1122)
+
+    if math.fabs(tri_c1212) > math.fabs(tri_c1122):
+        print('WARNING m =', m, 'n =', n, '1212 =', tri_c1212, '1122 =', tri_c1122)
     logging.info(
         'Triplet interaction C11={0}, C1111={1}, C1122={2}, C1212={3}'.format(
             tri_c11 / v0, tri_c1111 / v0, tri_c1122 / v0, tri_c1212 / v0
