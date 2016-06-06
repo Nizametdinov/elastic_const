@@ -4,15 +4,15 @@ import numpy as np
 
 class Triplet(object):
     """This class describes system of 3 particles with coordinates l=[0,0], m, n"""
-    def __init__(self, m, n, fem, pair_fem, fdc, pair_fdc):
+    def __init__(self, m, n, triplet_fem, pair_fem, triplet_fdc, pair_fdc):
         self.m = m
         self.n = n
         self.particles = {'m': m, 'n': n, 'l': [0., 0.]}
         self.positions = np.array([[0., 0.], m, n])
 
-        self.fem = fem
+        self.triplet_fem = triplet_fem
         self.pair_fem = pair_fem
-        self.fdc = fdc
+        self.triplet_fdc = triplet_fdc
         self.pair_fdc = pair_fdc
 
         r_m = math.sqrt(m[0] * m[0] + m[1] * m[1])
@@ -22,7 +22,7 @@ class Triplet(object):
 
         self.pair_forces = {}
         self.pair_force_derivatives = {}
-        self.triplet_forces = fem.compute_forces(self.positions)
+        self.triplet_forces = triplet_fem.compute_forces(self.positions)
         self.triplet_force_derivatives = {}
 
     def f2(self, pair, coord):
@@ -63,7 +63,7 @@ class Triplet(object):
         dcoord_letter = self._coord_letter(dcoord)
         dp_num = self._particle_num(dparticle)
         if key not in self.triplet_force_derivatives:
-            self.triplet_force_derivatives[key] = self.fdc.derivative_of_forces(
+            self.triplet_force_derivatives[key] = self.triplet_fdc.derivative_of_forces(
                 dcoord_letter, dp_num, self.positions
             )
         coord_letter = self._coord_letter(coord)
