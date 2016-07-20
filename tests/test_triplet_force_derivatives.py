@@ -92,6 +92,43 @@ class TestTripletForceDerivativeComputation(unittest.TestCase):
         self.assertEqual(dF_dy2.axis, 'y')
         self.assertEqual(dF_dy2.particle_num, 2)
 
+    def test_computes_higher_order_derivatives(self):
+        def forces(positions):
+            if np.all(positions == np.array([[0., 0.], [4., -0.02], [2., 3.]])):
+                return fs.TripletForces(
+                    positions, np.array([[-8.347, -3.884], [8.347, -3.884 - 4e-5 - 4.8e-3], [0., 7.769]]))
+            if np.all(positions == np.array([[0., 0.], [4., -0.01], [2., 3.]])):
+                return fs.TripletForces(
+                    positions, np.array([[-8.347, -3.884], [8.347, -3.884 - 5e-6 - 1.2e-3], [0., 7.769]]))
+            if np.all(positions == np.array([[0., 0.], [4., 0.], [2., 3.]])):
+                return fs.TripletForces(
+                    positions, np.array([[-8.347, -3.884], [8.347, -3.884], [0., 7.769]]))
+            if np.all(positions == np.array([[0., 0.], [4., 0.01], [2., 3.]])):
+                return fs.TripletForces(
+                    positions, np.array([[-8.347, -3.884], [8.347, -3.884 + 5e-6 - 1.2e-3], [0., 7.769]]))
+            if np.all(positions == np.array([[0., 0.], [4., 0.02], [2., 3.]])):
+                return fs.TripletForces(
+                    positions, np.array([[-8.347, -3.884], [8.347, -3.884 + 4e-5 - 4.8e-3], [0., 7.769]]))
+            raise ValueError('Unexpected value of positions: {0}'.format(positions))
+
+        mock_config = {'compute_forces.side_effect': forces}
+        self.subject.simulation.configure_mock(**mock_config)
+        self.subject.order = 5
+
+        d3F_dy2 = self.subject.derivative_of_forces('Y', 2, self.positions, n=2)
+        np_test.assert_allclose(d3F_dy2.derivatives, [[0., 0.], [0., -24.], [0., 0.]], atol=1e-10)
+        np_test.assert_equal(d3F_dy2.positions, self.positions)
+        self.assertEqual(d3F_dy2.n, 2)
+        self.assertEqual(d3F_dy2.axis, 'y')
+        self.assertEqual(d3F_dy2.particle_num, 2)
+
+        d3F_dy2 = self.subject.derivative_of_forces('Y', 2, self.positions, n=3)
+        np_test.assert_allclose(d3F_dy2.derivatives, [[0., 0.], [0., 30.], [0., 0.]], atol=1e-9)
+        np_test.assert_equal(d3F_dy2.positions, self.positions)
+        self.assertEqual(d3F_dy2.n, 3)
+        self.assertEqual(d3F_dy2.axis, 'y')
+        self.assertEqual(d3F_dy2.particle_num, 2)
+
     def test_saves_computed_values_to_cache(self):
         computed = self.subject.derivative_of_forces('y', 2, self.positions)
         cached = self.subject.cache.read('y', 2, self.positions)
@@ -109,7 +146,7 @@ class TestTripletForceDerivativeComputation(unittest.TestCase):
         self.subject.simulation.compute_forces = Mock(return_value=None)
 
         self.subject.derivative_of_forces('x', 2, np.array([[0, 0], [2.5, 0], [3, 3]]))
-        self.subject.derivative_func.assert_called_with(ANY, 2.5, dx=(2.5 - 2) * 0.01, order=3)
+        self.subject.derivative_func.assert_called_with(ANY, 2.5, dx=(2.5 - 2) * 0.01, order=3, n=1)
 
     def test_computes_rotated_configuration_using_cash(self):
         p2 = np.array([3., 0.])

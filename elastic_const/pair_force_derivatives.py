@@ -5,12 +5,14 @@ FINITE_DIFF_STEP = 0.01
 FINITE_DIFF_ORDER = 5
 
 
-class PairForceDerivative(namedtuple('PairForceDerivative', ['distance', 'derivative', 'force'])):
+class PairForceDerivative(namedtuple('PairForceDerivative', ['distance', 'derivative', 'force', 'n'])):
     def rotate(self, to, origin):
         """
         Compute derivatives of x and y components of force acting on second particle when it has
         coordinates `to` and first particle has coordinates `origin`
         """
+        if self.n != 1:
+            raise NotImplementedError
         x = to[0] - origin[0]
         y = to[1] - origin[1]
         distance_sqr = self.distance * self.distance
@@ -32,12 +34,12 @@ class PairForceDerivativeComputation(object):
         self.r = r
         self.derivative_func = derivative_func
 
-    def derivative_of_force(self, distance):
+    def derivative_of_force(self, distance, n=1):
         def force_func(arg):
             return self.simulation.compute_forces(arg).force
 
         force = self.simulation.compute_forces(distance).force
         step = self.step * (distance - 2 * self.r) if distance - 2 * self.r < 1.0 else self.step
-        dF_dr = self.derivative_func(force_func, distance, dx=step, order=self.order)
-        result = PairForceDerivative(distance, dF_dr, force)
+        dF_dr = self.derivative_func(force_func, distance, dx=step, order=self.order, n=n)
+        result = PairForceDerivative(distance, dF_dr, force, n=n)
         return result
