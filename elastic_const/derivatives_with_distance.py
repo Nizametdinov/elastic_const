@@ -2,6 +2,7 @@ from elastic_const.misc import format_float, EPSILON, cross_product_2d
 from elastic_const.triplet import Triplet
 from collections import namedtuple
 from os import path
+from elastic_const import forces, triplet_force_derivatives, pair_force_derivatives
 import elastic_const.cache_base as cache_base
 import numpy as np
 import math
@@ -135,7 +136,13 @@ class Potential2DerivativesComputation(object):
 
 
 class Potential3DerivativesComputation(object):
-    def __init__(self, pair_fem, pair_fdc, triplet_fem, triplet_fdc, working_dir):
+    def __init__(
+            self,
+            pair_fem: forces.PairFemSimulation,
+            pair_fdc: pair_force_derivatives.PairForceDerivative,
+            triplet_fem: forces.TripletFemSimulation,
+            triplet_fdc: triplet_force_derivatives.TripletForceDerivativeComputation,
+            working_dir):
         self.pair_fem = pair_fem
         self.pair_derivative_computation = pair_fdc
 
@@ -188,11 +195,11 @@ class Potential3DerivativesComputation(object):
         x3 = (r12**2 + r13**2 - r23**2) / (2 * r12)
         m = np.array([x2, 0.])
         n = np.array([x3, 0.])
-        conf = Triplet(m, n, self.triplet_fem, self.pair_fem, self.triplet_derivative_computation,
-                       self.pair_derivative_computation)
-        df3_dr23_2 = - conf.ΔF('m', X) / (4 * (x2 - x3))
-        df3_dr12_2 = - conf.ΔF('m', X) / (4 * (x2 - x1))
-        df3_dr13_2 = - conf.ΔF('n', X) / (4 * (x3 - x1))
+        triplet = Triplet(m, n, self.triplet_fem, self.pair_fem, self.triplet_derivative_computation,
+                          self.pair_derivative_computation)
+        df3_dr23_2 =  (triplet.ΔF('m', X) - triplet.dΔF('m', Y, 'm', Y) * (x2 - x1)) / (2 * (x3 - x1))
+        df3_dr12_2 = -(triplet.ΔF('m', X) - triplet.dΔF('m', Y, 'm', Y) * (x2 - x3)) / (2 * (x3 - x1))
+        df3_dr13_2 = -(triplet.ΔF('n', X) - triplet.dΔF('n', Y, 'n', Y) * (x3 - x2)) / (2 * (x2 - x1))
 
         result = Potential3DistanceDerivatives(r12, r23, r13, df3_dr12_2, df3_dr23_2, df3_dr13_2)
         return result
@@ -205,7 +212,7 @@ class Potential3DerivativesComputation(object):
 
         sorted_dist = sorted([r12, r23, r13])
         if np.allclose(sorted_dist[0] + sorted_dist[1], sorted_dist[2]):
-            return self.second_derivatives_aligned(r12, r23, r13, first_derivatives)
+            return self.second_derivatives_aligned(r12, r23, r13)
 
         def make_matrix(vec1, vec2):
             return -4 * np.array([
@@ -245,27 +252,69 @@ class Potential3DerivativesComputation(object):
         )
         return result
 
-    def second_derivatives_aligned(self, r12, r13, r23, first_derivatives):
-        df3 = first_derivatives
+    def second_derivatives_aligned(self, r12, r13, r23):
         x1, x2 = 0., r12
         x3 = (r12**2 + r13**2 - r23**2) / (2 * r12)
+        xs = x1, x2, x3
         m = np.array([x2, 0.])
         n = np.array([x3, 0.])
         triplet = Triplet(m, n, self.triplet_fem, self.pair_fem, self.triplet_derivative_computation,
                           self.pair_derivative_computation)
-        d2f3_dr23r23 = triplet.dΔF('m', X, 'm', X) + 2 * df3.dr12 + 4 * df3.dr23
-        d2f3_dr23r23 /= -16 * (x2 - x3) ** 2
-        d2f3_dr12r12 = d2f3_dr23r23 * r23 * r23 + df3.dr23 / 2 - df3.dr12
-        d2f3_dr12r12 /= r12 * r12
-        d2f3_dr12r23 = d2f3_dr23r23 * (x2 - x3) / (x2 - x1)
-        d2f3_dr13r13 = d2f3_dr23r23 * r23 * r23 + df3.dr23 / 2 - df3.dr13
-        d2f3_dr13r13 /= r13 * r13
-        d2f3_dr13r23 = d2f3_dr23r23 * (x3 - x2) / (x3 - x1)
 
-        d2f3_dr12r13 = d2f3_dr23r23 * (x3 - x2)**2 + df3.dr23 / 2
-        d2f3_dr12r13 /= - (x2 - x1) * (x3 - x1)
+        d2f3_dr12r12, d2f3_dr12r23, d2f3_dr23r23 = self.__aligned_second_derivatives_around_i(
+            triplet, i=2, j=1, k=3, xs=xs, r_ij=r12, r_ik=r23
+        )
+
+        d2f3_dr13r13, d2f3_dr13r23, d2f3_dr23r23_2 = self.__aligned_second_derivatives_around_i(
+            triplet, i=3, j=1, k=2, xs=xs, r_ij=r13, r_ik=r23
+        )
+
+        d2f3_dr12r12_2, d2f3_dr12r13, d2f3_dr13r13_2 = self.__aligned_second_derivatives_around_i(
+            triplet, i=1, j=2, k=3, xs=xs, r_ij=r13, r_ik=r23
+        )
+
+        assert np.allclose(d2f3_dr23r23, d2f3_dr23r23_2), '{0} != {1}'.format(d2f3_dr23r23, d2f3_dr23r23_2)
+        assert np.allclose(d2f3_dr12r12, d2f3_dr12r12_2), '{0} != {1}'.format(d2f3_dr12r12, d2f3_dr12r12_2)
+        assert np.allclose(d2f3_dr13r13, d2f3_dr13r13_2), '{0} != {1}'.format(d2f3_dr13r13, d2f3_dr13r13_2)
+
 
         result = Potential3DistanceSecondDerivatives(
             r12, r23, r13, d2f3_dr12r12, d2f3_dr12r23, d2f3_dr13r13, d2f3_dr13r23, d2f3_dr23r23, d2f3_dr12r13
         )
         return result
+
+    def __d2Fx_dy2(self, r, x):
+        dF = self.pair_derivative_computation.derivative_of_force(r)
+        # TODO: check the sign of dF.force / (x * x). How it depends on the sign of x
+        return dF.derivative / x - dF.force / (x * x)
+
+    def __d3Fy_dy3(self, r):
+        d2F = self.pair_derivative_computation.derivative_of_force(r, n=2)
+        dF = self.pair_derivative_computation.derivative_of_force(r, n=1)
+        return d2F.derivative / r - dF.derivative / (r * r) + 2 * dF.force / (r * r * r)
+
+    def __aligned_second_derivatives_around_i(self, triplet, i, j, k, xs, r_ij, r_ik):
+        i_letter = ['l', 'm', 'n'][i - 1]
+        d2F_dy_i = self.triplet_derivative_computation.derivative_of_forces('y', i, triplet.positions, n=2)
+        d3F_dy_i = self.triplet_derivative_computation.derivative_of_forces('y', i, triplet.positions, n=3)
+
+        d2ΔF_ix_dy_i = d2F_dy_i.derivatives[1][0]
+        d2ΔF_ix_dy_i -= self.__d2Fx_dy2(r_ij, xs[i - 1] + xs[j - 1]) - self.__d2Fx_dy2(xs[i - 1] - xs[k - 1])
+        d3ΔF_iy_dy_i = d3F_dy_i.derivatives[1][1] - self.__d3Fy_dy3(r_ij) - self.__d3Fy_dy3(r_ik)
+
+        d2f3_dr_ik_r_ik = 0.5 * (triplet.dΔF(i_letter, Y, i_letter, Y) - triplet.dΔF(i_letter, X, i_letter, X))
+        d2f3_dr_ij_r_ik = d2f3_dr_ij_r_ij = d2f3_dr_ik_r_ik
+
+        d2f3_dr_ij_r_ij += d2ΔF_ix_dy_i * (xs[i - 1] - xs[k - 1])
+        d2f3_dr_ij_r_ik += d2ΔF_ix_dy_i * (xs[j - 1] + xs[k - 1] - 2 * xs[i - 1])
+        d2f3_dr_ik_r_ik += d2ΔF_ix_dy_i * (xs[i - 1] - xs[j - 1])
+
+        d2f3_dr_ij_r_ij += d3ΔF_iy_dy_i * (xs[i - 1] - xs[k - 1]) * (xs[i - 1] - xs[k - 1])
+        d2f3_dr_ij_r_ik -= d3ΔF_iy_dy_i * (xs[i - 1] - xs[j - 1]) * (xs[i - 1] - xs[k - 1])
+        d2f3_dr_ik_r_ik += d3ΔF_iy_dy_i * (xs[i - 1] - xs[j - 1]) * (xs[i - 1] - xs[j - 1])
+
+        d2f3_dr_ij_r_ij /= (xs[k - 1] - xs[j - 1])
+        d2f3_dr_ij_r_ik /= (xs[k - 1] - xs[j - 1])
+        d2f3_dr_ik_r_ik /= (xs[k - 1] - xs[j - 1])
+
+        return d2f3_dr_ij_r_ij, d2f3_dr_ij_r_ik, d2f3_dr_ik_r_ik
