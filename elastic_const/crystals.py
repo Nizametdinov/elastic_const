@@ -7,6 +7,11 @@ from elastic_const.misc import pairwise_distances
 
 class Lattice(object):
     def __init__(self, a, max_order, grid_vectors: np.ndarray):
+        """
+        :param a: lattice constant
+        :param max_order: number of the farthest neighbour of central particle
+        :param grid_vectors: primitive vectors of lattice
+        """
         self.a = a
         self._grid_vectors = grid_vectors
         self._unscaled_points = None
@@ -99,3 +104,20 @@ class PrimitiveCubicLattice(Lattice):
 
     def ws_cell_volume(self):
         return self.a * self.a * self.a
+
+
+class FaceCenteredCubicLattice(Lattice):
+    def __init__(self, a, max_order):
+        super().__init__(a, max_order, np.array([
+            [.5, .5, 0.],
+            [.5, 0., .5],
+            [0., .5, .5]
+        ]))
+        self._orders = [
+            math.sqrt(1 / 2), 1, math.sqrt(3 / 2), math.sqrt(2), math.sqrt(5 / 2), math.sqrt(3), math.sqrt(7 / 2), 2,
+            3 / math.sqrt(2), math.sqrt(5), math.sqrt(11 / 2), math.sqrt(6)
+        ]
+
+    def ws_cell_volume(self):
+        # Rhombic dodecahedron
+        return self.a * self.a * self.a / 4.
