@@ -18,6 +18,15 @@ def get_computation_log_files(log_dir):
     return files
 
 
+def process_match(a, interaction, match):
+    order, c11, c1111, c1122, c1212 = match.groups()
+    c11, c1111, c1122, c1212 = float(c11), float(c1111), float(c1122), float(c1212)
+    b1111 = c1111 + c11
+    b1122 = c1122 - c11
+    b1212 = c1212 + c11
+    return (a, interaction, int(order), c11, c1111, c1122, c1212, b1111, b1122, b1212)
+
+
 def get_data_from_file(a, filename):
     result = []
     pair_re = re.compile(PAIR_PATTERN)
@@ -25,13 +34,11 @@ def get_data_from_file(a, filename):
     for line in open(filename):
         match = pair_re.match(line)
         if match:
-            order, c11, c1111, c1122, c1212 = match.groups()
-            result.append((a, 2, int(order), float(c11), float(c1111), float(c1122), float(c1212)))
+            result.append(process_match(a, 2, match))
             continue
         match = triplet_re.match(line)
         if match:
-            order, c11, c1111, c1122, c1212 = match.groups()
-            result.append((a, 3, int(order), float(c11), float(c1111), float(c1122), float(c1212)))
+            result.append(process_match(a, 3, match))
     return result
 
 if __name__ == "__main__":
@@ -44,8 +51,8 @@ if __name__ == "__main__":
 
         np.savetxt(
             'quad_crystal_elastic_consts.out', data,
-            fmt=' '.join(['%4.1f', '%d', '%d', '%.18e', '%.18e', '%.18e', '%.18e']),
-            header='a interaction order c11 c1111 c1122 c1212'
+            fmt=' '.join(['%4.1f', '%d', '%d'] + ['%.18e'] * 7),
+            header='a interaction order c11 c1111 c1122 c1212 b1111 b1122 b1212'
         )
     else:
         print('You must provide directory name')
